@@ -6,6 +6,7 @@
 #ifndef UTILITY_H
 #define UTILITY_H
 
+//PCL
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_representation.h>
@@ -114,26 +115,12 @@ namespace utility
 	};
 
 	template <typename PointT>
-	class CloudUtility 
+	class CloudUtility
 	{
 	public:
 		//Get Center of a Point Cloud
-		void getCloudCenterPoint(const typename pcl::PointCloud<PointT> & cloud, CenterPoint & centerPoint);
-		//Get Bound of a Point Cloud
-		void getCloudBound(const typename pcl::PointCloud<PointT> & cloud, Bounds & bound);
-		//Get Bound and Center of a Point Cloud
-		void getBoundAndCenter(const typename pcl::PointCloud<PointT> & cloud, Bounds & bound, CenterPoint& centerPoint);
-		//Get Bound of Subsets of a Point Cloud
-		void GetSubsetBoundary(typename pcl::PointCloud<PointT>::Ptr & plane_wall_cloud, vector<int> & index, Bounds & bound);
-	protected:
-
-	private:
-	};
-
-	//Get Center of a Point Cloud
-	template <typename PointT>
-	void CloudUtility<PointT>::getCloudCenterPoint(const typename pcl::PointCloud<PointT> & cloud, CenterPoint & centerPoint)
-	{
+		void getCloudCenterPoint(const typename pcl::PointCloud<PointT> & cloud, CenterPoint & centerPoint)
+		{
 			double cx = 0, cy = 0, cz = 0;
 
 			for (int i = 0; i < cloud.size(); i++)
@@ -145,12 +132,11 @@ namespace utility
 			centerPoint.x = cx;
 			centerPoint.y = cy;
 			centerPoint.z = cz;
-	}
-		
-	//Get Bound of a Point Cloud
-	template <typename PointT>
-	void CloudUtility<PointT>::getCloudBound(const typename pcl::PointCloud<PointT> & cloud, Bounds & bound)
-	{
+		}
+
+		//Get Bound of a Point Cloud
+		void getCloudBound(const typename pcl::PointCloud<PointT> & cloud, Bounds & bound)
+		{
 			double min_x = cloud[0].x;
 			double min_y = cloud[0].y;
 			double min_z = cloud[0].z;
@@ -179,28 +165,30 @@ namespace utility
 			bound.max_y = max_y;
 			bound.min_z = min_z;
 			bound.max_z = max_z;
-	}
+		}
 
-
-	//Get Bound and Center of a Point Cloud
-	template <typename PointT>
-	void CloudUtility<PointT>::getBoundAndCenter(const typename pcl::PointCloud<PointT> & cloud, Bounds & bound, CenterPoint& centerPoint)
-	{
+		//Get Bound and Center of a Point Cloud
+		void getBoundAndCenter(const typename pcl::PointCloud<PointT> & cloud, Bounds & bound, CenterPoint& centerPoint)
+		{
 			getCloudCenterPoint(cloud, centerPoint);
 			getCloudBound(cloud, bound);
-	}
+		}
 
-	//Get Bound of Subsets of a Point Cloud
-	template <typename PointT>
-	void CloudUtility<PointT>::GetSubsetBoundary(typename pcl::PointCloud<PointT>::Ptr & plane_wall_cloud, vector<int> & index, Bounds & bound)
-	{
+		//Get Bound of Subsets of a Point Cloud
+		void GetSubsetBoundary(typename pcl::PointCloud<PointT>::Ptr & cloud, vector<int> & index, Bounds & bound)
+		{
 			pcl::PointCloud<PointT>::Ptr temp_cloud(new pcl::PointCloud<PointT>);
 			for (int i = 0; i < index.size(); i++)
 			{
-				temp_cloud->push_back(plane_wall_cloud->points[index[i]]);
+				temp_cloud->push_back(cloud->points[index[i]]);
 			}
 			getCloudBound(*temp_cloud, bound);
-	}	
+		}
+
+	protected:
+
+	private:
+	};
 }
 
 #endif //UTILITY_H
