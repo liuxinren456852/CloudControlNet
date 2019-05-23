@@ -47,7 +47,7 @@ typedef  pcl::PointCloud<pcl::FPFHSignature33>       fpfhFeature;
 
 namespace utility
 {
-	struct CenterPoint
+	struct CenterPoint //中心点
 	{
 		double x;
 		double y;
@@ -60,7 +60,7 @@ namespace utility
 		}
 	};
 
-	struct Bounds
+	struct Bounds //包围盒
 	{
 		double min_x;
 		double min_y;

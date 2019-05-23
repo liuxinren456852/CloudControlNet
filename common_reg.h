@@ -8,7 +8,7 @@
 #define COMMON_REG_H
 
 #include <Eigen/dense>
-
+#include "find_constraint.h"
 #include "utility.h"
 
 using namespace utility;
@@ -31,16 +31,16 @@ public:
 	* \param[in]  use_trimmed_rejector : A parameter controls whether use trimmed correspondence rejector or not (bool)
 	* \param[in]  thre_dis : A parameter used to estimate the approximate overlap ratio of Source Point Cloud. It acts as the search radius of overlapping estimation.
 	*/
-	void icp_reg(const typename pcl::PointCloud<PointT>::Ptr & SourceCloud,
+	bool icp_reg(const typename pcl::PointCloud<PointT>::Ptr & SourceCloud,
 		const typename pcl::PointCloud<PointT>::Ptr & TargetCloud,
 		typename pcl::PointCloud<PointT>::Ptr & TransformedSource,
 		Eigen::Matrix4f & transformationS2T,
 		int max_iter,
 		bool use_reciprocal_correspondence,
 		bool use_trimmed_rejector,
-		float thre_dis);
+		float thre_dis,
+		float min_overlap_for_reg);
 	
-
 	/**
 	* \brief Point-to-Plane metric ICP
 	* \param[in]  SourceCloud : A pointer of the Source Point Cloud (Each point of it is used to find the nearest neighbor as correspondence)
@@ -53,15 +53,16 @@ public:
 	* \param[in]  thre_dis : A parameter used to estimate the approximate overlap ratio of Source Point Cloud. It acts as the search radius of overlapping estimation.
 	*/
 	// Tips: The Source and Target Point Cloud must have normal (You need to calculated it outside this method). In this case, PointT should be something like PointXYZ**Normal
-	void ptplicp_reg(const typename pcl::PointCloud<PointT>::Ptr & SourceCloud,
+	bool ptplicp_reg(const typename pcl::PointCloud<PointT>::Ptr & SourceCloud,
 		const typename pcl::PointCloud<PointT>::Ptr & TargetCloud,
 		typename pcl::PointCloud<PointT>::Ptr & TransformedSource,
 		Eigen::Matrix4f & transformationS2T,
 		int max_iter,
 		bool use_reciprocal_correspondence,
 		bool use_trimmed_rejector,
-		float thre_dis);
-
+		float thre_dis,
+		int covariance_K,  // You can switch to radius search 
+		float min_overlap_for_reg);
 
 	/**
 	* \brief Generalized (Plane-to-Plane) metric ICP
@@ -78,16 +79,16 @@ public:
 	// Attention please.
 	// Problem : It is found that the G-ICP codes in pcl does not support the correspondence rejector because its computeTransformation method is completely different from classic icp's though gicp is inherited from icp.
 	// In my opinion, this is the main reason for G-ICP's ill behavior. I am working on the G-ICP with trimmed property now.
-	void gicp_reg(const typename pcl::PointCloud<PointT>::Ptr & SourceCloud,
+	bool gicp_reg(const typename pcl::PointCloud<PointT>::Ptr & SourceCloud,
 		const typename pcl::PointCloud<PointT>::Ptr & TargetCloud,
 		typename pcl::PointCloud<PointT>::Ptr & TransformedSource,
 		Eigen::Matrix4f & transformationS2T,
-		int k_neighbor_covariance,
 		int max_iter,
 		bool use_reciprocal_correspondence,
 		bool use_trimmed_rejector,
-		float thre_dis);
-
+		float thre_dis,
+		int covariance_K,
+		float min_overlap_for_reg);
 
 	/**
 	* \brief Estimated the approximate overlapping ratio for Cloud1 considering Cloud2
@@ -100,7 +101,6 @@ public:
 		const typename pcl::PointCloud<PointT>::Ptr & Cloud2,
 		float thre_dis);
 
-
 	/**
 	* \brief Transform a Point Cloud using a given transformation matrix
 	* \param[in]  Cloud : A pointer of the Point Cloud before transformation
@@ -110,31 +110,6 @@ public:
 	void transformcloud(typename pcl::PointCloud<PointT>::Ptr & Cloud,
 		typename pcl::PointCloud<PointT>::Ptr & TransformedCloud,
 		Eigen::Matrix4f & transformation);
-
-
-	/**
-	* \brief Calculate the Normal of a given Point Cloud
-	* \param[in]  cloud : A pointer of the Point Cloud
-	* \param[out] cloud_normals : A pointer of the Point Cloud's Normal
-	* \param[in]  search_radius : The search radius for neighborhood covariance calculation and PCA
-	*/
-	void calNormal(const typename pcl::PointCloud<PointT>::Ptr & cloud,
-		typename pcl::PointCloud<pcl::Normal>::Ptr cloud_normals,
-		float search_radius);
-
-
-	/**
-	* \brief Calculate the Covariance of a given Point Cloud
-	* \param[in]  cloud : A pointer of the Point Cloud
-	* \param[out] cloud_normals : A pointer of the Point Cloud's Normal
-	* \param[out] covariances : The covariance of the Point Cloud
-	* \param[in]  search_radius : The search radius for neighborhood covariance calculation and PCA
-	*/
-	void calCovariance(const typename pcl::PointCloud<PointT>::Ptr & cloud,
-		pcl::PointCloud<pcl::Normal>::Ptr cloud_normals,
-		std::vector<Eigen::Matrix3d, Eigen::aligned_allocator<Eigen::Matrix3d>> & covariances,
-		float search_radius);
-
 
 	/**
 	* \brief Get the Inverse (Not Mathimatically) of a giving 4*4 Transformation Matrix
@@ -159,15 +134,19 @@ public:
 	
 	//Brief: Using the Gauss-Newton Least Square Method to solve 4 Degree of Freedom Transformation from no less than 2 points
 	//cp_number is the control points' number for LLS calculation, the rest of points are used to check the accuracy;
-	bool LLS_4DOF(const std::vector <std::vector<double>> & coordinatesA, const std::vector <std::vector<double>> & coordinatesB, Matrix4d & TransMatrixA2B, int cp_number, double theta0_degree);
+	bool LLS_4DOF(const std::vector <std::vector<double>> & coordinatesA, const std::vector <std::vector<double>> & coordinatesB, Matrix4d & TransMatrixA2B, int cp_number, double theta0_degree); //X Y Z yaw
+	bool SVD_6DOF(const std::vector <std::vector<double>> & coordinatesA, const std::vector <std::vector<double>> & coordinatesB, Matrix4d & TransMatrixA2B, int cp_number);   //X Y Z roll pitch yaw
 
-	bool SVD_6DOF(const std::vector <std::vector<double>> & coordinatesA, const std::vector <std::vector<double>> & coordinatesB, Matrix4d & TransMatrixA2B, int cp_number);
+	bool CSTRAN_4DOF(const std::vector <std::vector<double>> & coordinatesA, const std::vector <std::vector<double>> & coordinatesB, std::vector<double> &transpara, int cp_number);  // X Y yaw scale
+	bool CSTRAN_7DOF(const std::vector <std::vector<double>> & coordinatesA, const std::vector <std::vector<double>> & coordinatesB, std::vector<double> &transpara, int cp_number);  // X Y Z roll pitch yaw scale
+
+	void Perturbation(const typename pcl::PointCloud<PointT>::Ptr & Cloud, typename pcl::PointCloud<PointT>::Ptr & CloudAfterPerturbation, float pertubate_value, std::vector<float> &pertubate_vector);
+
+    //Add Registration edge in one line
+	bool add_registration_edge(const typename pcl::PointCloud<PointT>::Ptr & subcloud1, const typename pcl::PointCloud<PointT>::Ptr & subcloud2, Constraint &con, 
+		float cloud_Registration_PerturbateValue, int cloud_Registration_MaxIterNumber, bool cloud_Registration_UseReciprocalCorres, bool cloud_Registration_UseTrimmedRejector, float cloud_Registration_OverlapSearchRadius, int covariance_K, float cloud_Registration_MinOverlapForReg);
 
 protected:
-
-	void PointcloudwithNormal(const pcl::PointCloud<pcl::PointXYZI>::Ptr & cloud,
-		const pcl::PointCloud<pcl::Normal>::Ptr & cloudnormal,
-		pcl::PointCloud<pcl::PointXYZINormal>::Ptr & cloudwithnormal);
 
 private:
 };

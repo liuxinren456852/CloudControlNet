@@ -113,3 +113,26 @@ double Constraint_Finder::calculate_iou(Bounds & bound1, Bounds & bound2)
 
 	return iou;
 }
+
+void Constraint_Finder::batch_find_multisource_constranits(std::vector<std::vector<CloudBlock>> &ALS_strip_blocks, std::vector<CloudBlock> &TLS_blocks, std::vector<CloudBlock> &MLS_blocks, std::vector<CloudBlock> &BPLS_blocks, std::vector<CloudBlock> &All_blocks,
+	std::vector<Constraint> &ALS_inner_strip_cons_all, std::vector<Constraint> &MLS_adjacent_cons, std::vector<Constraint> &BPLS_adjacent_cons, std::vector<Constraint> &registration_cons, std::vector<Constraint> &All_cons,
+	int overlap_Registration_KNN, float overlap_Registration_OverlapRatio)
+{
+	int adjacent_cons_num;
+	find_strip_adjacent_constraint(ALS_strip_blocks, ALS_inner_strip_cons_all);
+	if(MLS_blocks.size()>1) find_adjacent_constraint_in_strip(MLS_blocks, MLS_adjacent_cons);
+	if(BPLS_blocks.size()>1) find_adjacent_constraint_in_strip(BPLS_blocks, BPLS_adjacent_cons);
+	find_overlap_registration_constraint(All_blocks, registration_cons, overlap_Registration_KNN, overlap_Registration_OverlapRatio);
+
+	cout << "Constraints Found" << endl;
+	if (ALS_inner_strip_cons_all.size()>0) All_cons.insert(All_cons.end(), ALS_inner_strip_cons_all.begin(), ALS_inner_strip_cons_all.end());
+	if (MLS_adjacent_cons.size()>0) All_cons.insert(All_cons.end(), MLS_adjacent_cons.begin(), MLS_adjacent_cons.end());
+	if (BPLS_adjacent_cons.size()>0) All_cons.insert(All_cons.end(), BPLS_adjacent_cons.begin(), BPLS_adjacent_cons.end());
+	adjacent_cons_num = All_cons.size();
+	if (registration_cons.size()>0) All_cons.insert(All_cons.end(), registration_cons.begin(), registration_cons.end());
+
+	cout << "The number of constraints : " << All_cons.size() << endl;
+	cout << "The number of adjacent constraints : " << adjacent_cons_num << endl;
+	cout << "The number of registration constraints : " << registration_cons.size() << endl;
+	cout << "!----------------------------------------------------------------------------!" << endl;
+}

@@ -19,10 +19,17 @@
 #include <pcl/registration/correspondence_rejection_sample_consensus.h>
 #include <pcl/registration/correspondence_rejection_trimmed.h>
 #include <pcl/registration/transformation_estimation_svd.h>
+#include <glog/logging.h>
 
 #include <Eigen/dense>
 #include <cmath>
 #include "common_reg.h"
+#include "PCA.h"
+
+
+// This program accomplish the fine registration between ALS block and TLS point clouds. [Use TLS as the control cloud (alignment target)]
+// It also provides various methods to achieve the same goal. You can do comprehensive experiment based on this program.
+// It is part of the ALS Refinement Project for Highway Expansion and Reconstruction Engineering
 
 /**
 * \brief Point-to-Point metric ICP
@@ -36,14 +43,15 @@
 * \param[in]  thre_dis : A parameter used to estimate the approximate overlap ratio of Source Point Cloud. It acts as the search radius of overlapping estimation.
 */
 template<typename PointT>
-void CRegistration<PointT>::icp_reg(const typename pcl::PointCloud<PointT>::Ptr & SourceCloud,
+bool CRegistration<PointT>::icp_reg(const typename pcl::PointCloud<PointT>::Ptr & SourceCloud,
 	const typename pcl::PointCloud<PointT>::Ptr & TargetCloud,
 	typename pcl::PointCloud<PointT>::Ptr & TransformedSource,
 	Eigen::Matrix4f & transformationS2T,
 	int max_iter,
 	bool use_reciprocal_correspondence,
 	bool use_trimmed_rejector,
-	float thre_dis)
+	float thre_dis,
+	float min_overlap_for_reg)
 {
 	clock_t t0, t1;
 	t0=clock();
@@ -56,8 +64,15 @@ void CRegistration<PointT>::icp_reg(const typename pcl::PointCloud<PointT>::Ptr 
 	// Trimmed or not? [ Use a predefined overlap ratio to trim part of the correspondence with bigger distance ]
 	if (use_trimmed_rejector){
 		pcl::registration::CorrespondenceRejectorTrimmed::Ptr trimmed_cr(new pcl::registration::CorrespondenceRejectorTrimmed);
-		trimmed_cr->setOverlapRatio(calOverlap(SourceCloud,TargetCloud,thre_dis));
-		icp.addCorrespondenceRejector(trimmed_cr);
+		float overlap_ratio = calOverlap(SourceCloud, TargetCloud, thre_dis);
+		if (overlap_ratio < min_overlap_for_reg) {
+			LOG(WARNING) << "The overlap ratio is too small. This registration would not be done.";
+			return false;
+		}
+		else{
+			trimmed_cr->setOverlapRatio(overlap_ratio);
+			icp.addCorrespondenceRejector(trimmed_cr);
+		}
 	}
 
 	icp.setInputSource(SourceCloud);
@@ -74,17 +89,25 @@ void CRegistration<PointT>::icp_reg(const typename pcl::PointCloud<PointT>::Ptr 
 	icp.setEuclideanFitnessEpsilon(1e-5);   //Quite hard to happen
 	
 	icp.align(*TransformedSource);  //Use closed-form SVD to estimate transformation for each iteration [You can switch to L-M Optimization]
-	transformationS2T = icp.getFinalTransformation();
+	transformationS2T = icp.getFinalTransformation().cast<float>();
 	
 	t1=clock();
 
 	// Commented these out if you don't want to output the registration log
+	LOG(INFO) << "Point-to-Point ICP done in  " << float(t1 - t0) / CLOCKS_PER_SEC << "s";
+	LOG(INFO) << transformationS2T;
+	LOG(INFO) << "The fitness score of this registration is " << icp.getFitnessScore();
+	if (icp.getFitnessScore() > 5000) LOG(WARNING) << "The fitness score of this registration is a bit too large";
+	LOG(INFO) << "-----------------------------------------------------------------------------";
+
+	//
 	cout << "Point-to-Point ICP done in " << float(t1 - t0) / CLOCKS_PER_SEC << " s" << endl << transformationS2T << endl;
 	cout << "The fitness score of this registration is " <<icp.getFitnessScore()<<endl;
 	cout << "-----------------------------------------------------------------------------" << endl;
+	return true;
 }
 
-
+// Key
 /**
 * \brief Point-to-Plane metric ICP
 * \param[in]  SourceCloud : A pointer of the Source Point Cloud (Each point of it is used to find the nearest neighbor as correspondence)
@@ -98,30 +121,39 @@ void CRegistration<PointT>::icp_reg(const typename pcl::PointCloud<PointT>::Ptr 
 */
 // Tips: The Source and Target Point Cloud must have normal (You need to calculated it outside this method). In this case, PointT should be something like PointXYZ**Normal
 template<typename PointT>
-void CRegistration<PointT>::ptplicp_reg(const typename pcl::PointCloud<PointT>::Ptr & SourceCloud,
+bool CRegistration<PointT>::ptplicp_reg(const typename pcl::PointCloud<PointT>::Ptr & SourceCloud,
 	const typename pcl::PointCloud<PointT>::Ptr & TargetCloud,
 	typename pcl::PointCloud<PointT>::Ptr & TransformedSource,
 	Eigen::Matrix4f & transformationS2T,
 	int max_iter,
 	bool use_reciprocal_correspondence,
 	bool use_trimmed_rejector,
-	float thre_dis)
+	float thre_dis,
+	int covariance_K,  // You can switch to radius search 
+	float min_overlap_for_reg)
 {
 	clock_t t0, t1;
 	t0=clock();
 	
 	// In this case, The Cloud's Normal hasn't been calculated yet. 
-	// pcl::PointCloud<pcl::Normal>::Ptr SourceNormal(new pcl::PointCloud<pcl::Normal>), TargetNormal(new pcl::PointCloud<pcl::Normal>);
-	// pcl::PointCloud<pcl::PointXYZINormal>::Ptr SourceCloudwithNormal(new pcl::PointCloud<pcl::PointXYZINormal>), TargetCloudwithNormal(new pcl::PointCloud<pcl::PointXYZINormal>);
-	// calNormal(SourceCloud, SourceNormal, 1.0);
-	// calNormal(TargetCloud, TargetNormal, 1.0);
-	// PointcloudwithNormal(SourceCloud, SourceNormal, SourceCloudwithNormal);
-	// PointcloudwithNormal(TargetCloud, TargetNormal, TargetCloudwithNormal);
-
-	pcl::IterativeClosestPointWithNormals<PointT, PointT> ptplicp;
 	
-	// ptplicp.setInputSource(SourceCloudwithNormal);
-	// ptplicp.setInputTarget(TargetCloudwithNormal);
+	pcl::PointCloud<pcl::PointNormal>::Ptr SourceNormal(new pcl::PointCloud<pcl::PointNormal>());
+	pcl::PointCloud<pcl::PointNormal>::Ptr TargetNormal(new pcl::PointCloud<pcl::PointNormal>());
+	pcl::PointCloud<pcl::PointNormal>::Ptr TransformedSourceN(new pcl::PointCloud<pcl::PointNormal>());
+
+	PrincipleComponentAnalysis<PointT> pca_estimator;
+	//Radius search
+	//pca_estimator.CalculatePointCloudWithNormal_Radius(SourceCloud, radius, SourceNormal); //To correct the potential bug: PointT should be PointXYZ or the PointNormal(XYZNormal) would go wrong
+	//pca_estimator.CalculatePointCloudWithNormal_Radius(TargetCloud, radius, TargetNormal);
+	
+	//KNN search
+	pca_estimator.CalculatePointCloudWithNormal_KNN(SourceCloud, covariance_K, SourceNormal);
+	pca_estimator.CalculatePointCloudWithNormal_KNN(TargetCloud, covariance_K, TargetNormal);
+
+	pcl::IterativeClosestPointWithNormals<pcl::PointNormal, pcl::PointNormal> ptplicp;
+	
+	ptplicp.setInputSource(SourceNormal);
+	ptplicp.setInputTarget(TargetNormal);
 	
 	// Use Reciprocal Correspondences or not? [a -> b && b -> a]
 	ptplicp.setUseReciprocalCorrespondences(use_reciprocal_correspondence);
@@ -129,12 +161,16 @@ void CRegistration<PointT>::ptplicp_reg(const typename pcl::PointCloud<PointT>::
 	// Trimmed or not? [ Use a predefined overlap ratio to trim part of the correspondence with bigger distance ]
 	if (use_trimmed_rejector){
 		pcl::registration::CorrespondenceRejectorTrimmed::Ptr trimmed_cr(new pcl::registration::CorrespondenceRejectorTrimmed);
-		trimmed_cr->setOverlapRatio(calOverlap(SourceCloud, TargetCloud, thre_dis));
-		ptplicp.addCorrespondenceRejector(trimmed_cr);
+		float overlap_ratio = calOverlap(SourceCloud, TargetCloud, thre_dis);
+		if (overlap_ratio < min_overlap_for_reg) {
+			LOG(WARNING) << "The overlap ratio is too small. This registration would not be done.";
+			return false;
+		}
+		else{
+			trimmed_cr->setOverlapRatio(overlap_ratio);
+			ptplicp.addCorrespondenceRejector(trimmed_cr);
+		}
 	}
-
-	ptplicp.setInputSource(SourceCloud);
-	ptplicp.setInputTarget(TargetCloud);
 	
 	// Converge criterion ( 'Or' Relation ) 
 	// Set the maximum number of iterations [ n>x ] (criterion 1)
@@ -144,16 +180,23 @@ void CRegistration<PointT>::ptplicp_reg(const typename pcl::PointCloud<PointT>::
 	// Set the relative RMS difference between two consecutive iterations [ RMS(n)-RMS(n+1)<x*RMS(n) ] (criterion 3)
 	ptplicp.setEuclideanFitnessEpsilon(1e-5);   //Quite hard to happen
 	
-	ptplicp.align(*TransformedSource);  //Use Linear Least Square Method to estimate transformation for each iteration
+	ptplicp.align(*TransformedSourceN);  //Use Linear Least Square Method to estimate transformation for each iteration
 
 	transformationS2T = ptplicp.getFinalTransformation();
 
 	t1=clock();
 
 	// Commented these out if you don't want to output the registration log
-	cout << "Point-to-Plane ICP done in " << float(t1 - t0) / CLOCKS_PER_SEC << " s" << endl << transformationS2T << endl;
+	LOG(INFO) << "Point-to-Plane ICP done in  " << float(t1 - t0) / CLOCKS_PER_SEC << "s";
+	// LOG(INFO) << "Transform Matrix" << endl << transformationS2T;
+	LOG(INFO) << "The fitness score of this registration is " << ptplicp.getFitnessScore();
+	if (ptplicp.getFitnessScore() > 5000) LOG(WARNING) << "The fitness score of this registration is a bit too large";
+	// LOG(INFO) << "-----------------------------------------------------------------------------";
+
+	// Commented these out if you don't want to output the registration log
+	cout << "Point-to-Plane ICP done in " << float(t1 - t0) / CLOCKS_PER_SEC << " s" << endl << transformationS2T << endl; //This one is with perturbation;
 	cout << "The fitness score of this registration is " << ptplicp.getFitnessScore() << endl;
-	cout << "-----------------------------------------------------------------------------" << endl;
+	//cout << "-----------------------------------------------------------------------------" << endl;
 }
 
 /**
@@ -172,15 +215,16 @@ void CRegistration<PointT>::ptplicp_reg(const typename pcl::PointCloud<PointT>::
 // Problem : It is found that the G-ICP codes in pcl does not support the correspondence rejector because its computeTransformation method is completely different from classic icp's though gicp is inherited from icp.
 // In my opinion, this is the main reason for G-ICP's ill behavior. I am working on the G-ICP with trimmed property now.
 template<typename PointT>
-void CRegistration<PointT>::gicp_reg(const typename pcl::PointCloud<PointT>::Ptr & SourceCloud,
+bool CRegistration<PointT>::gicp_reg(const typename pcl::PointCloud<PointT>::Ptr & SourceCloud,
 	const typename pcl::PointCloud<PointT>::Ptr & TargetCloud,
 	typename pcl::PointCloud<PointT>::Ptr & TransformedSource,
 	Eigen::Matrix4f & transformationS2T,
-	int k_neighbor_covariance,
 	int max_iter,
 	bool use_reciprocal_correspondence,
 	bool use_trimmed_rejector,
-	float thre_dis)
+	float thre_dis,
+	int covariance_K,
+	float min_overlap_for_reg)
 {	
 	clock_t t0, t1;
 	t0=clock();
@@ -188,17 +232,24 @@ void CRegistration<PointT>::gicp_reg(const typename pcl::PointCloud<PointT>::Ptr
 	pcl::GeneralizedIterativeClosestPoint<PointT, PointT> gicp;
 	
 	// Set the number of points used to calculated the covariance of a point
-	gicp.setCorrespondenceRandomness(k_neighbor_covariance);
+	gicp.setCorrespondenceRandomness(covariance_K);
 	
 	// Use Reciprocal Correspondences or not? [a -> b && b -> a]
 	gicp.setUseReciprocalCorrespondences(use_reciprocal_correspondence);
 
 	// Trimmed or not? [ Use a predefined overlap ratio to trim part of the correspondence with bigger distance ]
-	/*if (use_trimmed_rejector){
+	if (use_trimmed_rejector){
 		pcl::registration::CorrespondenceRejectorTrimmed::Ptr trimmed_cr(new pcl::registration::CorrespondenceRejectorTrimmed);
-		trimmed_cr->setOverlapRatio(calOverlap(SourceCloud, TargetCloud, thre_dis));
-		gicp.addCorrespondenceRejector(trimmed_cr);
-	}*/
+		float overlap_ratio = calOverlap(SourceCloud, TargetCloud, thre_dis);
+		if (overlap_ratio < min_overlap_for_reg) {
+			LOG(WARNING) << "The overlap ratio is too small. This registration would not be done.";
+			return false;
+		}
+		else{
+			trimmed_cr->setOverlapRatio(overlap_ratio);
+			gicp.addCorrespondenceRejector(trimmed_cr);
+		}
+	}
 	
 	gicp.setMaxCorrespondenceDistance(1e6); //A large value
 
@@ -219,6 +270,13 @@ void CRegistration<PointT>::gicp_reg(const typename pcl::PointCloud<PointT>::Ptr
 	transformationS2T = gicp.getFinalTransformation();
 
 	t1=clock();
+
+	// Commented these out if you don't want to output the registration log
+	LOG(INFO) << "GICP done in  " << float(t1 - t0) / CLOCKS_PER_SEC << "s";
+	LOG(INFO) << transformationS2T;
+	LOG(INFO) << "The fitness score of this registration is " << gicp.getFitnessScore();
+	if (gicp.getFitnessScore() > 5000) LOG(WARNING) << "The fitness score of this registration is a bit too large";
+	LOG(INFO) << "-----------------------------------------------------------------------------";
 
 	// Commented these out if you don't want to output the registration log
 	cout << "GICP done in " << float(t1 - t0) / CLOCKS_PER_SEC << " s" << endl << transformationS2T << endl;
@@ -253,7 +311,8 @@ float CRegistration<PointT>::calOverlap(const typename pcl::PointCloud<PointT>::
 	}
 	
 	overlap_ratio = (0.01 + overlap_point_num) / Cloud1->size();
-	cout << "The estimated approximate overlap ratio of Cloud 1 is " << overlap_ratio << endl;
+	//cout << "The estimated approximate overlap ratio of Cloud 1 is " << overlap_ratio << endl;
+	LOG(INFO) << "The estimated approximate overlap ratio of Cloud 1 is " << overlap_ratio;
 
 	return overlap_ratio;
 }
@@ -311,62 +370,6 @@ void CRegistration<PointT>::invTransform(const Eigen::Matrix4f & transformation,
 	invtransformation(3, 3) = 1;
 }
 
-
-/**
-* \brief Calculate the Normal of a given Point Cloud
-* \param[in]  cloud : A pointer of the Point Cloud 
-* \param[out] cloud_normals : A pointer of the Point Cloud's Normal 
-* \param[in]  search_radius : The search radius for neighborhood covariance calculation and PCA
-*/
-template<typename PointT>
-void CRegistration<PointT>::calNormal(const typename pcl::PointCloud<PointT>::Ptr & cloud,
-	typename pcl::PointCloud<pcl::Normal>::Ptr cloud_normals,
-	float search_radius)
-{
-	pcl::NormalEstimation<PointT, pcl::Normal> ne;
-	ne.setInputCloud(cloud);
-	pcl::search::KdTree<PointT>::Ptr tree(new pcl::search::KdTree<PointT>());
-	ne.setSearchMethod(tree);
-	ne.setRadiusSearch(search_radius);
-	ne.compute(*cloud_normals);
-}
-
-
-/**
-* \brief Calculate the Covariance of a given Point Cloud
-* \param[in]  cloud : A pointer of the Point Cloud
-* \param[out] cloud_normals : A pointer of the Point Cloud's Normal
-* \param[out] covariances : The covariance of the Point Cloud
-* \param[in]  search_radius : The search radius for neighborhood covariance calculation and PCA
-*/
-template<typename PointT>
-void CRegistration<PointT>::calCovariance(const typename pcl::PointCloud<PointT>::Ptr & cloud,
-	pcl::PointCloud<pcl::Normal>::Ptr cloud_normals,
-	std::vector<Eigen::Matrix3d, Eigen::aligned_allocator<Eigen::Matrix3d>> & covariances,
-	float search_radius)
-{
-	calNormal(cloud, cloud_normals, search_radius);
-	pcl::features::computeApproximateCovariances(*cloud, *cloud_normals, covariances);
-
-}
-
-
-template<typename PointT>
-void CRegistration<PointT>::PointcloudwithNormal(const pcl::PointCloud<pcl::PointXYZI>::Ptr & cloud,
-	const pcl::PointCloud<pcl::Normal>::Ptr & cloudnormal,
-	pcl::PointCloud<pcl::PointXYZINormal>::Ptr & cloudwithnormal)
-{
-	for (int i = 0; i < cloud->size(); i++)
-	{
-		cloudwithnormal->points[i].x = cloud->points[i].x;
-		cloudwithnormal->points[i].y = cloud->points[i].y;
-		cloudwithnormal->points[i].z = cloud->points[i].z;
-		cloudwithnormal->points[i].intensity = cloud->points[i].intensity;
-		cloudwithnormal->points[i].normal_x = cloudnormal->points[i].normal_x;
-		cloudwithnormal->points[i].normal_y = cloudnormal->points[i].normal_y;
-		cloudwithnormal->points[i].normal_z = cloudnormal->points[i].normal_z;
-	}
-}
 template<typename PointT>
 void CRegistration<PointT>::compute_fpfh_feature(const typename pcl::PointCloud<PointT>::Ptr &input_cloud, fpfhFeaturePtr &cloud_fpfh, float search_radius){
 	
@@ -418,6 +421,221 @@ void CRegistration<PointT>::Coarsereg_FPFHSAC(const typename pcl::PointCloud<Poi
 	cout << "FPFH-SAC done in " << float(t1 - t0) / CLOCKS_PER_SEC << " s" << endl << transformationS2T << endl;
 	cout << "The fitness score of this registration is " << gicp.getFitnessScore() << endl;
 	cout << "-----------------------------------------------------------------------------" << endl;
+}
+
+
+template<typename PointT>
+void CRegistration<PointT>::Perturbation(const typename pcl::PointCloud<PointT>::Ptr & Cloud, typename pcl::PointCloud<PointT>::Ptr & CloudAfterPerturbation, float pertubate_value, std::vector<float> &pertubate_vector)
+{
+	pertubate_vector.resize(3);
+	pertubate_vector[0] = 0.5 * pertubate_value - pertubate_value * ((double)rand() / RAND_MAX);
+	pertubate_vector[1] = 0.5 * pertubate_value - pertubate_value * ((double)rand() / RAND_MAX);
+	pertubate_vector[2] = 0.5 * pertubate_value - pertubate_value * ((double)rand() / RAND_MAX);
+	
+	for (size_t i = 0; i < Cloud->size(); i++)
+	{
+		PointT pt;
+		pt.x = Cloud->points[i].x + pertubate_vector[0];
+		pt.y = Cloud->points[i].y + pertubate_vector[1];
+		pt.z = Cloud->points[i].z + pertubate_vector[2];
+		CloudAfterPerturbation->push_back(pt);
+	}
+	LOG(INFO) << "The perturbation vector is:  X " << pertubate_vector[0] << " , Y " << pertubate_vector[1] << " , Z " << pertubate_vector[2];
+}
+
+
+template<typename PointT>
+bool CRegistration<PointT>::CSTRAN_4DOF(const std::vector <std::vector<double>> & coordinatesA, const std::vector <std::vector<double>> & coordinatesB, std::vector<double> &transpara, int cp_number)
+{
+	double tx,ty,a,b;                   // 4 parameters 
+	double s, rot_rad, rot_degree;
+	double RMSE_check, sum_squaredist;
+	int pointnumberA, pointnumberB, pointnumbercheck;
+	Vector4d transAB;
+	transpara.resize(5);
+
+	pointnumberA = coordinatesA.size();
+	pointnumberB = coordinatesB.size();
+
+	sum_squaredist = 0;
+
+	if (cp_number < 3)
+	{
+		cout << "Error ! Not enough control point number ..." << endl;
+		return 0;
+	}
+
+	MatrixXd A_;
+	VectorXd b_;
+
+	A_.resize(cp_number * 2, 4);
+	b_.resize(cp_number * 2, 1);
+
+	for (int j = 0; j < cp_number; j++)
+	{
+		// A Matrix
+		A_(j * 2, 0) = 1;
+		A_(j * 2, 1) = 0;
+		A_(j * 2, 2) = coordinatesA[j][0];
+		A_(j * 2, 3) = -coordinatesA[j][1];
+
+		A_(j * 2 + 1, 0) = 0;
+		A_(j * 2 + 1, 1) = 1;
+		A_(j * 2 + 1, 2) = coordinatesA[j][1];
+		A_(j * 2 + 1, 3) = coordinatesA[j][0];
+
+		//b Vector
+		b_(j * 2, 0) = coordinatesB[j][0];
+		b_(j * 2 + 1, 0) = coordinatesB[j][1];
+	}
+	transAB = ((A_.transpose()*A_).inverse())*A_.transpose()*b_;
+		
+	tx = transAB(0, 0);
+	ty = transAB(1, 0);
+	a = transAB(2, 0);
+	b = transAB(3, 0);
+	s = sqrt(a*a + b*b);
+	
+	transpara[0] = tx;
+	transpara[1] = ty;
+	transpara[2] = s;
+	transpara[3] = b / s; //sin (ang)
+	transpara[4] = a / s; //cos (ang)
+	
+	cout.setf(ios::showpoint);  //将小数精度后面的0显示出来;
+	cout.precision(12);         //设置输出精度，保留有效数字;
+
+	cout<< "Estimated Transformation From A to B" << endl
+		<< "tx: " << tx << " m" << endl
+		<< "ty: " << ty << " m" << endl
+		<< "scale: " << s << endl;
+
+	// Checking
+	if (pointnumberA >= pointnumberB) pointnumbercheck = pointnumberB;
+	else pointnumbercheck = pointnumberA;
+
+	if (pointnumbercheck <= cp_number) cout << "Not enough points for check ..." << endl;
+	else
+	{
+		pointnumbercheck -= cp_number;
+		for (int j = 0; j < pointnumbercheck; j++)
+		{
+			double X_tran, Y_tran, squaredist;
+			X_tran = transpara[2] * transpara[4] * coordinatesA[j + cp_number][0] - transpara[2] * transpara[3] * coordinatesA[j + cp_number][1] + transpara[0];
+			Y_tran = transpara[2] * transpara[3] * coordinatesA[j + cp_number][0] + transpara[2] * transpara[4] * coordinatesA[j + cp_number][1] + transpara[1];
+			squaredist = (X_tran - coordinatesB[j + cp_number][0])*(X_tran - coordinatesB[j + cp_number][0]) +
+				(Y_tran - coordinatesB[j + cp_number][1])*(Y_tran - coordinatesB[j + cp_number][1]);
+			sum_squaredist += squaredist;
+		}
+
+		RMSE_check = sqrt(sum_squaredist / pointnumbercheck);
+
+		cout << "Calculated from " << pointnumbercheck << " points, the RMSE is " << RMSE_check << endl;
+	}
+
+	return 1;
+}
+
+template<typename PointT>
+bool CRegistration<PointT>::CSTRAN_7DOF(const std::vector <std::vector<double>> & coordinatesA, const std::vector <std::vector<double>> & coordinatesB, std::vector<double> &transpara, int cp_number)
+{
+	double RMSE_check, sum_squaredist;
+	int pointnumberA, pointnumberB, pointnumbercheck;
+	VectorXd transAB;
+	transAB.resize(7);
+	transpara.resize(7);
+
+	pointnumberA = coordinatesA.size();
+	pointnumberB = coordinatesB.size();
+
+	sum_squaredist = 0;
+
+	if (cp_number < 4)
+	{
+		cout << "Error ! Not enough control point number ..." << endl;
+		return 0;
+	}
+
+	MatrixXd A_;
+	VectorXd b_;
+
+	A_.resize(cp_number * 3, 7);
+	b_.resize(cp_number * 3, 1);
+
+	for (int j = 0; j < cp_number; j++)
+	{
+		// A Matrix   tx ty tz rx ry rz s
+		A_(j * 3, 0) = 1;
+		A_(j * 3, 1) = 0;
+		A_(j * 3, 2) = 0;
+		A_(j * 3, 3) = 0;
+		A_(j * 3, 4) = -coordinatesA[j][2];
+		A_(j * 3, 5) = coordinatesA[j][1];
+		A_(j * 3, 6) = coordinatesA[j][0];
+
+		A_(j * 3 + 1, 0) = 0;
+		A_(j * 3 + 1, 1) = 1;
+		A_(j * 3 + 1, 2) = 0;
+		A_(j * 3 + 1, 3) = coordinatesA[j][2];
+		A_(j * 3 + 1, 4) = 0;
+		A_(j * 3 + 1, 5) = -coordinatesA[j][0];
+		A_(j * 3 + 1, 6) = coordinatesA[j][1];
+
+		A_(j * 3 + 2, 0) = 0;
+		A_(j * 3 + 2, 1) = 0;
+		A_(j * 3 + 2, 2) = 1;
+		A_(j * 3 + 2, 3) = -coordinatesA[j][1];
+		A_(j * 3 + 2, 4) = coordinatesA[j][0];
+		A_(j * 3 + 2, 5) = 0;
+		A_(j * 3 + 2, 6) = coordinatesA[j][2];
+
+		//b Vector
+		b_(j * 3, 0) = coordinatesB[j][0];
+		b_(j * 3 + 1, 0) = coordinatesB[j][1];
+		b_(j * 3 + 2, 0) = coordinatesB[j][2];
+	}
+	transAB = ((A_.transpose()*A_).inverse())*A_.transpose()*b_;
+
+	transpara[0] = transAB(0);transpara[1] = transAB(1);transpara[2] = transAB(2);transpara[3] = transAB(3); transpara[4] = transAB(4); transpara[5] = transAB(5);transpara[6] = transAB(6);
+
+	cout.setf(ios::showpoint);  //将小数精度后面的0显示出来;
+	cout.precision(10);         //设置输出精度，保留有效数字;
+
+	cout << "Estimated Transformation From A to B" << endl
+		<< "tx: " << transpara[0] << " m" << endl
+		<< "ty: " << transpara[1] << " m" << endl
+		<< "tz: " << transpara[2] << " m" <<endl
+		<< "rx: " << transpara[3] << endl
+		<< "ry: " << transpara[4] << endl
+		<< "rz: " << transpara[5] << endl
+		<< "scale: " << transpara[6] << endl;
+
+	// Checking
+	if (pointnumberA >= pointnumberB) pointnumbercheck = pointnumberB;
+	else pointnumbercheck = pointnumberA;
+
+	if (pointnumbercheck <= cp_number) cout << "Not enough points for check ..." << endl;
+	else
+	{
+		pointnumbercheck -= cp_number;
+		for (int j = 0; j < pointnumbercheck; j++)
+		{
+			double X_tran, Y_tran, Z_tran, squaredist;
+			X_tran = transpara[0] + transpara[6] * coordinatesA[j + cp_number][0] + transpara[5] * coordinatesA[j + cp_number][1] - transpara[4] * coordinatesA[j + cp_number][2];
+			Y_tran = transpara[1] + transpara[6] * coordinatesA[j + cp_number][1] - transpara[5] * coordinatesA[j + cp_number][0] + transpara[3] * coordinatesA[j + cp_number][2];
+			Z_tran = transpara[2] + transpara[6] * coordinatesA[j + cp_number][2] + transpara[4] * coordinatesA[j + cp_number][0] - transpara[3] * coordinatesA[j + cp_number][1];
+			squaredist = (X_tran - coordinatesB[j + cp_number][0])*(X_tran - coordinatesB[j + cp_number][0]) +
+				(Y_tran - coordinatesB[j + cp_number][1])*(Y_tran - coordinatesB[j + cp_number][1])+
+				(Z_tran - coordinatesB[j + cp_number][2])*(Z_tran - coordinatesB[j + cp_number][2]);
+			sum_squaredist += squaredist;
+		}
+
+		RMSE_check = sqrt(sum_squaredist / pointnumbercheck);
+
+		cout << "Calculated from " << pointnumbercheck << " points, the RMSE is " << RMSE_check << endl;
+	}
+
+	return 1;
 }
 
 
@@ -688,5 +906,45 @@ bool CRegistration<PointT>::SVD_6DOF(const std::vector <std::vector<double>> & c
 		RMSE_check = sqrt(sum_squaredist / pointnumbercheck);
 
 		cout << "Calculated from " << pointnumbercheck << " points, the RMSE is " << RMSE_check << endl;
+	}
+}
+
+template<typename PointT>
+bool CRegistration<PointT>::add_registration_edge(const typename pcl::PointCloud<PointT>::Ptr & subcloud1, const typename pcl::PointCloud<PointT>::Ptr & subcloud2, Constraint &con, 
+	float cloud_Registration_PerturbateValue, int cloud_Registration_MaxIterNumber, bool cloud_Registration_UseReciprocalCorres, bool cloud_Registration_UseTrimmedRejector, float cloud_Registration_OverlapSearchRadius, int covariance_K, float cloud_Registration_MinOverlapForReg)
+{
+	//Apply perturbation
+	pcl::PointCloud<PointT>::Ptr subcloud1_perturbated(new pcl::PointCloud<PointT>());
+	std::vector<float> p_vector(3, 0);
+	Perturbation(subcloud1, subcloud1_perturbated,cloud_Registration_PerturbateValue, p_vector);
+
+	//ICP Registration  [Trimmed Point-to-Point ICP / or you can switch to other metrics]
+	pcl::PointCloud<PointT>::Ptr regcloud2(new pcl::PointCloud<PointT>());
+	Eigen::Matrix4f Trans2_1p, Trans1p_2;
+	if (ptplicp_reg(subcloud2, subcloud1_perturbated, regcloud2, Trans2_1p, cloud_Registration_MaxIterNumber, cloud_Registration_UseReciprocalCorres, cloud_Registration_UseTrimmedRejector, cloud_Registration_OverlapSearchRadius, covariance_K, cloud_Registration_MinOverlapForReg))
+	{
+		invTransform(Trans2_1p, Trans1p_2);
+		con.Trans1_2 = Trans1p_2;
+		con.Trans1_2(0, 3) += p_vector[0];
+		con.Trans1_2(1, 3) += p_vector[1];
+		con.Trans1_2(2, 3) += p_vector[2];
+		cout.setf(ios::showpoint);
+		cout.precision(10);
+		cout << "Registration Done for cloud blocks #" << con.block1.unique_index << "  and  #" << con.block2.unique_index << endl;
+		cout << "-----------------------------------------------------------------------------"<<endl;
+		LOG(INFO) << "Registration Done for cloud blocks #" << con.block1.unique_index << "  and  #" << con.block2.unique_index;
+		LOG(INFO) << "Edge Value: Transformation Matrix with perturbation:" << endl << con.Trans1_2;
+		LOG(INFO) << "-----------------------------------------------------------------------------";
+		return true;
+	}
+	else
+	{
+		con.con_type = 0; //non-constraint
+		cout << "Registration Failed for cloud blocks #" << con.block1.unique_index << "  and  #" << con.block2.unique_index << endl;
+		cout << "-----------------------------------------------------------------------------" << endl;
+		LOG(INFO) << "Registration Failed for cloud blocks #"  << con.block1.unique_index << "  and  #" << con.block2.unique_index;
+		LOG(INFO) << "-----------------------------------------------------------------------------";
+		return false; 
+		//Get rid of the misregistration: Delete the edge with too small point cloud overlapping ratio;
 	}
 }

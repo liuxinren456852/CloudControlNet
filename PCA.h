@@ -66,7 +66,7 @@ namespace utility
 		* \param[in] radius is the neighborhood search radius (m) for KD Tree
 		* \param[out] normals is the normal of all the points from the Point Cloud
 		*/
-		bool CalculateNormalVectorOpenMP(typename pcl::PointCloud<PointT>::Ptr inputPointCloud,
+		bool CalculateNormalVector_Radius(typename pcl::PointCloud<PointT>::Ptr inputPointCloud,
 			float radius,
 			pcl::PointCloud<pcl::Normal>::Ptr &normals)
 		{
@@ -83,6 +83,55 @@ namespace utility
 			CheckNormals(normals);
 			return true;
 		}
+
+		bool CalculatePointCloudWithNormal_Radius(typename pcl::PointCloud<PointT>::Ptr inputPointCloud,
+			float radius,
+			pcl::PointCloud<pcl::PointNormal>::Ptr &pointnormals)
+		{
+			pcl::PointCloud<pcl::Normal>::Ptr normals(new pcl::PointCloud<pcl::Normal>());
+			bool normal_ready = CalculateNormalVector_Radius(inputPointCloud, radius, normals);
+			if (normal_ready)
+			{
+				// Concatenate the XYZ and normal fields*  
+				pcl::concatenateFields(*inputPointCloud, *normals, *pointnormals);
+				return true;
+			}
+			else return false;
+		}
+
+		bool CalculateNormalVector_KNN(typename pcl::PointCloud<PointT>::Ptr inputPointCloud,
+			int K,
+			pcl::PointCloud<pcl::Normal>::Ptr &normals)
+		{
+			// Create the normal estimation class, and pass the input dataset to it;
+			pcl::NormalEstimationOMP<PointT, pcl::Normal> ne;
+			ne.setInputCloud(inputPointCloud);
+			// Create an empty kd-tree representation, and pass it to the normal estimation object;
+			pcl::search::KdTree<PointT>::Ptr tree(new pcl::search::KdTree<PointT>());
+			ne.setSearchMethod(tree);
+			// Use all neighbors in a sphere of radius;
+			ne.setKSearch(K);
+			// Compute the normal
+			ne.compute(*normals);
+			CheckNormals(normals);
+			return true;
+		}
+
+		bool CalculatePointCloudWithNormal_KNN(typename pcl::PointCloud<PointT>::Ptr inputPointCloud,
+			int K,
+			pcl::PointCloud<pcl::PointNormal>::Ptr &pointnormals)
+		{
+			pcl::PointCloud<pcl::Normal>::Ptr normals(new pcl::PointCloud<pcl::Normal>());
+			bool normal_ready = CalculateNormalVector_KNN(inputPointCloud, K, normals);
+			if (normal_ready)
+			{
+				// Concatenate the XYZ and normal fields*  
+				pcl::concatenateFields(*inputPointCloud, *normals, *pointnormals);
+				return true;
+			}
+			else return false;
+		}
+
 
 		/**
 		* \brief Principle Component Analysis (PCA) of the Point Cloud with fixed search radius
