@@ -12,144 +12,38 @@ using namespace utility;
 
 int main(/*int argc, char** argv*/)
 {
-	//ÕûÌåÁ÷³Ì;
-	//Ç°¶Ë;
-	//1.½¨Í¼;
-	//2.°´Í¼Åä×¼;
+	//æ•´ä½“æµç¨‹;
+	//å‰ç«¯;
+	//1.å»ºå›¾;
+	//2.æŒ‰å›¾é…å‡†;
 
-	//ALS ALS subsample 0.5 0.5   search_dis 1.0  
-	//ALS TLS subsample 0.6 0.2   search_dis 1.5
-
-	//ºó¶Ë;
-	//3.Åä×¼½á¹û×÷Îª¹Û²âÊı¾İ½øĞĞÓÅ»¯;
-	//4.ÓÅ»¯½á¹ûÖØ½âËã;
-
-	//To do list
-	//¼Ó²¢ĞĞ£¬ÌáÉıĞ§ÂÊ;
-	//ALS+ALSº½´øÅä×¼Ëã·¨¸Ä½ø;
-	//Î»×ËÍ¼¸³È¨Éè¼Æ;
-	//µãÔÆÖØ½âËã;
-	//ÎÈ½¡ĞÔ£¬Â³°ôĞÔÔöÇ¿;
-	//¾«¶È×Ô¼ì½Ï;
+	//åç«¯;
+	//3.é…å‡†ç»“æœä½œä¸ºè§‚æµ‹æ•°æ®è¿›è¡Œä¼˜åŒ–;
+	//4.ä¼˜åŒ–ç»“æœé‡è§£ç®—;
 
 	cout << "!----------------------------------------------------------------------------!" << endl;
 	cout << "!                               ALS Refinement                               !" << endl;
 	cout << "!                              by Yue Pan et al.                             !" << endl;
-	cout << "!----------------------------------------------------------------------------!" << endl;
-
+	cout << "!----------------------------------------------------------------------------!" << end
 	google::InitGoogleLogging("Mylog");
 	google::SetLogDestination(google::GLOG_INFO, "./MyLogInfo");
 	LOG(INFO) << "Launch the program!";
 	
-	/*
-	//µãÔÆÁ½Á½Åä×¼;
-	// Input the filename (Or just drag in) by yourself
-	string filenameA, filenameB;
-	//cout << "Input ALS Point Cloud File:" << endl;  //ALS
-	//cin >> filenameT;
-	//cout << "Input TLS Point Cloud File:" << endl;  //TLS
-	//cin >> filenameS;
-	pcXYZPtr cloudA(new pcXYZ()), cloudB(new pcXYZ());
-	DataIo <pcl::PointXYZ> io;
-	//io.readCloudFile(filenameT, cloudT);
-	//io.readCloudFile(filenameS, cloudS);
-	//TLS+TLS test
-	io.readLasFile("7-1-TLS.las", cloudA, 1);
-	io.readLasFileLast("2-MLS.las", cloudB);
-	//ALS+ALS test
-	//io.readLasFile("1-3-11-ALS.las", cloudA, 1);
-	//io.readLasFileLast("2-1-11-ALS.las", cloudB);
-	//ALS+TLS test
-	//io.readLasFile("4-1-TLS.las", cloudA, 1);
-	//io.readLasFileLast("1-3-2-ALS.las", cloudB);
-	//.readLasFile("5-1-TLS.las", cloudA, 1);
-	//io.readLasFileLast("1-3-14-ALS.las", cloudB);
-	cout << "Read File Done..." << endl << "Raw point number: [ A:  " << cloudA->size() << "  , B:  " << cloudB->size() << " ]" << endl;
-	// Filter the Point Cloud for registration
-	pcXYZPtr subcloudA(new pcXYZ()), subcloudB(new pcXYZ());
-	float downsample_resolution_A;  //Voxel Down-sampling's size (unit:m)
-	float downsample_resolution_B;  //Voxel Down-sampling's size (unit:m)
-	cout << "Input A's downsample resolution." << endl; cin >> downsample_resolution_A;
-	cout << "Input B's downsample resolution." << endl; cin >> downsample_resolution_B;
-	VoxelFilter<pcl::PointXYZ> vf_A(downsample_resolution_A); VoxelFilter<pcl::PointXYZ> vf_B(downsample_resolution_B);
-	subcloudA = vf_A.filter(cloudA); subcloudB = vf_B.filter(cloudB);
-	cout << "Down-sampled point cloud number: [ A:  " << subcloudA->size() << " , B:  " << subcloudB->size() << " ]" << endl;
-	// Apply other filters here ...
-	// Fine Registration of ALS and TLS point cloud
-	cout << "Registration begin." << endl;
-	int icp_type = 0;
-	//cout << "Select the Registration Method." << endl;
-	//cout << "1.Point-to-Point ICP   2.Point-to-Plane ICP   3.Generalized ICP  [default 1]" << endl;
-	//cin >> icp_type;
-	bool use_reciprocal_correspondence = 0;
-	//cout << "Use Reciprocal Correspondences or not?  0. No  1. Yes  [default 0]" << endl;
-	//cin >> use_reciprocal_correspondence;
-	bool use_trimmed_rejector = 1;
-	//cout << "Use Trimmed Correspondences Rejector or not?  0. No  1. Yes  [default 1]" << endl;
-	//cin >> use_trimmed_rejector;
-	CRegistration <pcl::PointXYZ> reg;
-	pcXYZPtr regB(new pcXYZ()), regA(new pcXYZ());  // regS: Transformed Sub-sampled Source Cloud   regALS: Transformed Raw Source Cloud
-	Eigen::Matrix4f TransA2B, TransB2A;                     // Trans: TLS->TLS' for ALS (Target)   TransALS: ALS->ALS'  for TLS (Target)
-	// other parameters
-	int max_iter_num = 50;               // Maximum iteration number before convergence
-	float overlap_search_radius = 5.0;   // The search radius in meter for overlapping ratio estimation [This is a subtle parameter, ³õÖµÔ½ºÃ£¬¸ÃÖµÉèµÄÔ½Ğ¡;]
-	int covariance_knn = 15;             // The number of neighbor points for covariance and normal calculation
-	float covariance_radius = 1.5;       //
-	float min_overlap_for_reg = 0.1;
-	//float overlap_ratio = 0.4; 
-	//Input Parameters
-	//cout << "Max iteration number is: " << endl; cin >> max_iter_num;  //50 ?
-	cout << "Overlap search radius is: " << endl; cin >> overlap_search_radius;  //1.0?
-	//cout << "Covariance calculate radius is: " << endl; cin >> covariance_radius;
-	//cout << "Overlap ratio is: " << endl; cin >> overlap_ratio;
-	reg.ptplicp_reg(subcloudB, subcloudA, regB, TransB2A, max_iter_num, use_reciprocal_correspondence, use_trimmed_rejector, overlap_search_radius, covariance_knn, min_overlap_for_reg);
-	reg.icp_reg(subcloudB, subcloudA, regB, TransB2A, max_iter_num, use_reciprocal_correspondence, use_trimmed_rejector, overlap_search_radius, min_overlap_for_reg);
-	reg.gicp_reg(subcloudB, subcloudA, regB, TransB2A, max_iter_num, use_reciprocal_correspondence, use_trimmed_rejector, overlap_search_radius, covariance_knn, min_overlap_for_reg);
-	
-
-	//Compare different registration method: ICPs on ALS2ALS and ALS2TLS testing cases
-	//
-	/*switch (icp_type)  // Do the registration
-	{
-	case 1:
-		reg.icp_reg(subcloudS, subcloudT, regS, Trans, max_iter_num, use_reciprocal_correspondence, use_trimmed_rejector, overlap_search_radius, 0.15);  // You can also use CloudT instead of subcloudT if efficiency is not your top priority
-		break;
-	case 2:
-		cout << " Attention please, The Input Point Clouds must have normal." << endl;
-		//regn.ptplicp_reg(subcloudS, cloudT, regS, Trans, max_iter_num, use_reciprocal_correspondence, use_trimmed_rejector, overlap_search_radius);
-		break;
-	case 3:
-		reg.gicp_reg(subcloudS, subcloudT, regS, Trans, covariance_knn, max_iter_num, use_reciprocal_correspondence, use_trimmed_rejector, overlap_search_radius);
-		break;
-	default:
-		reg.icp_reg(subcloudS, subcloudT, regS, Trans, max_iter_num, use_reciprocal_correspondence, use_trimmed_rejector, overlap_search_radius,0.15);
-		break;
-	}*/
-	//reg.invTransform(TransB2A, TransA2B);                //To get the transformation from ALS to ALS' with TLS as the target
-	//reg.transformcloud(cloudA, regA, TransA2B);          //To get the transformed ALS
-	//io.writeCloudFile("Acloud_after_registration.las", regA);
-	//cout << "Write File Done..." << endl;
-	//io.displaymulti(cloudS, cloudT, regALS, "TLS[R] ALS_before[B] ALS_transformed[G]"); // Display the result. Click "X" to continue.
-	//ALS2ALS  µãµãICP 10s    µãÃæICP 15s    GICP  19s
-	//ALS2TLS  µãµãICP 25s    µãÃæICP 35s    GICP  40s
-	//TLS2TLS  µãµãICP 35s    µãÃæICP 40s    GICP  45s
-
-	
 	//Set parameters or read the parameter configuration file.        
-	ParameterList project_parameters;                                  //²ÎÊı±í½âÊÍ;
-	project_parameters.Overlap_Registration_KNN = 10;                  //½¨Á¢ÖØµşÅä×¼Ô¼ÊøµÄµãÔÆ¿é½üÁÚËÑË÷¸öÊı;
-	project_parameters.Overlap_Registration_OverlapRatio = 0.25;       //½¨Á¢ÖØµşÅä×¼Ô¼ÊøµÄµãÔÆ¿é°üÎ§ºĞ×îĞ¡ÖØµşÂÊ;
-	project_parameters.Cloud_Registration_Downsampledis_ALS = 0.6;     //ALS»úÔØµãÔÆ³éÏ¡ÌåËØ´óĞ¡(m);  //0.5 m
-	project_parameters.Cloud_Registration_Downsampledis_TLS = 0.3;    //TLSµØÃæÕ¾µãÔÆ³éÏ¡ÌåËØ´óĞ¡(m); //0.25 m
-	project_parameters.Cloud_Registration_Downsampledis_MLS = 0.3;    //MLS³µÔØµãÔÆ³éÏ¡ÌåËØ´óĞ¡(m);   //0.25 m
-	project_parameters.Cloud_Registration_Downsampledis_BPLS = 0.3;   //BPLS±³°üµãÔÆ³éÏ¡ÌåËØ´óĞ¡(m);  //0.25 m
-	project_parameters.Cloud_Registration_MaxIterNumber = 40;          //ICPÅä×¼×î´óµü´ú´ÎÊı;
-	project_parameters.Cloud_Registration_OverlapSearchRadius = 2.0;   //Trimmed-ICPÖØµşËÑË÷°ë¾¶(m);
-	project_parameters.Cloud_Registration_MinOverlapForReg = 0.3;      //Trimmed-ICPÅä×¼ÔÊĞí×îĞ¡ÖØµşÂÊ;
-	project_parameters.Cloud_Registration_UseReciprocalCorres = 0;     //Åä×¼ÊÇ·ñÊ¹ÓÃË«Ïò×î¼Ñ¶ÔÓ¦(0²»ÓÃ,1ÓÃ);
-	project_parameters.Cloud_Registration_UseTrimmedRejector = 1;      //Åä×¼ÊÇ·ñÊ¹ÓÃTrimmed²ßÂÔ(0²»ÓÃ,1ÓÃ);
-	project_parameters.Cloud_Registration_PerturbateValue = 0.5;       //Åä×¼×î´óÎ¢ÈÅÁ¿(m);
-	project_parameters.Cloud_Registration_CovarianceK = 15;            //¹ÀËã·¨ÏòÁ¿ËùÓÃÁÚÓòµãÊı;
+	ParameterList project_parameters;                                  //å‚æ•°è¡¨è§£é‡Š;
+	project_parameters.Overlap_Registration_KNN = 10;                  //å»ºç«‹é‡å é…å‡†çº¦æŸçš„ç‚¹äº‘å—è¿‘é‚»æœç´¢ä¸ªæ•°;
+	project_parameters.Overlap_Registration_OverlapRatio = 0.25;       //å»ºç«‹é‡å é…å‡†çº¦æŸçš„ç‚¹äº‘å—åŒ…å›´ç›’æœ€å°é‡å ç‡;
+	project_parameters.Cloud_Registration_Downsampledis_ALS = 0.6;     //ALSæœºè½½ç‚¹äº‘æŠ½ç¨€ä½“ç´ å¤§å°(m);  //0.5 m
+	project_parameters.Cloud_Registration_Downsampledis_TLS = 0.3;    //TLSåœ°é¢ç«™ç‚¹äº‘æŠ½ç¨€ä½“ç´ å¤§å°(m); //0.25 m
+	project_parameters.Cloud_Registration_Downsampledis_MLS = 0.3;    //MLSè½¦è½½ç‚¹äº‘æŠ½ç¨€ä½“ç´ å¤§å°(m);   //0.25 m
+	project_parameters.Cloud_Registration_Downsampledis_BPLS = 0.3;   //BPLSèƒŒåŒ…ç‚¹äº‘æŠ½ç¨€ä½“ç´ å¤§å°(m);  //0.25 m
+	project_parameters.Cloud_Registration_MaxIterNumber = 40;          //ICPé…å‡†æœ€å¤§è¿­ä»£æ¬¡æ•°;
+	project_parameters.Cloud_Registration_OverlapSearchRadius = 2.0;   //Trimmed-ICPé‡å æœç´¢åŠå¾„(m);
+	project_parameters.Cloud_Registration_MinOverlapForReg = 0.3;      //Trimmed-ICPé…å‡†å…è®¸æœ€å°é‡å ç‡;
+	project_parameters.Cloud_Registration_UseReciprocalCorres = 0;     //é…å‡†æ˜¯å¦ä½¿ç”¨åŒå‘æœ€ä½³å¯¹åº”(0ä¸ç”¨,1ç”¨);
+	project_parameters.Cloud_Registration_UseTrimmedRejector = 1;      //é…å‡†æ˜¯å¦ä½¿ç”¨Trimmedç­–ç•¥(0ä¸ç”¨,1ç”¨);
+	project_parameters.Cloud_Registration_PerturbateValue = 0.5;       //é…å‡†æœ€å¤§å¾®æ‰°é‡(m);
+	project_parameters.Cloud_Registration_CovarianceK = 15;            //ä¼°ç®—æ³•å‘é‡æ‰€ç”¨é‚»åŸŸç‚¹æ•°;
 
 	//Timing
 	clock_t t0, t1, t2, t3, t4, t5, t6;
@@ -162,14 +56,14 @@ int main(/*int argc, char** argv*/)
 
 	//Set data folder or drag in the folder
 	string ALS_folder, TLS_folder, MLS_folder, BPLS_folder;
-	ALS_folder = "I:\\Data\\¸ßËÙ¹«Â·¸ÄÀ©½¨ÏîÄ¿-Êı¾İ\\¾Ö²¿2\\ALS"; 
-	//ALS_folder = "I:\\Data\\¸ßËÙ¹«Â·¸ÄÀ©½¨ÏîÄ¿-Êı¾İ\\ALS\\blocks";
-	TLS_folder = "I:\\Data\\¸ßËÙ¹«Â·¸ÄÀ©½¨ÏîÄ¿-Êı¾İ\\¾Ö²¿2\\TLS";
-	//TLS_folder = "I:\\Data\\¸ßËÙ¹«Â·¸ÄÀ©½¨ÏîÄ¿-Êı¾İ\\TLS\\utm48-las";
-	MLS_folder = "I:\\Data\\¸ßËÙ¹«Â·¸ÄÀ©½¨ÏîÄ¿-Êı¾İ\\¾Ö²¿2\\MLS";
-	//MLS_folder = "I:\\Data\\¸ßËÙ¹«Â·¸ÄÀ©½¨ÏîÄ¿-Êı¾İ\\MLS\\UTM48_tran-las";
-	BPLS_folder = "I:\\Data\\¸ßËÙ¹«Â·¸ÄÀ©½¨ÏîÄ¿-Êı¾İ\\¾Ö²¿2\\BPLS";
-	//BPLS_folder = "I:\\Data\\¸ßËÙ¹«Â·¸ÄÀ©½¨ÏîÄ¿-Êı¾İ\\BPLS\\UTM48_tran-las";
+	ALS_folder = "I:\\Data\\é«˜é€Ÿå…¬è·¯æ”¹æ‰©å»ºé¡¹ç›®-æ•°æ®\\å±€éƒ¨2\\ALS"; 
+	//ALS_folder = "I:\\Data\\é«˜é€Ÿå…¬è·¯æ”¹æ‰©å»ºé¡¹ç›®-æ•°æ®\\ALS\\blocks";
+	TLS_folder = "I:\\Data\\é«˜é€Ÿå…¬è·¯æ”¹æ‰©å»ºé¡¹ç›®-æ•°æ®\\å±€éƒ¨2\\TLS";
+	//TLS_folder = "I:\\Data\\é«˜é€Ÿå…¬è·¯æ”¹æ‰©å»ºé¡¹ç›®-æ•°æ®\\TLS\\utm48-las";
+	MLS_folder = "I:\\Data\\é«˜é€Ÿå…¬è·¯æ”¹æ‰©å»ºé¡¹ç›®-æ•°æ®\\å±€éƒ¨2\\MLS";
+	//MLS_folder = "I:\\Data\\é«˜é€Ÿå…¬è·¯æ”¹æ‰©å»ºé¡¹ç›®-æ•°æ®\\MLS\\UTM48_tran-las";
+	BPLS_folder = "I:\\Data\\é«˜é€Ÿå…¬è·¯æ”¹æ‰©å»ºé¡¹ç›®-æ•°æ®\\å±€éƒ¨2\\BPLS";
+	//BPLS_folder = "I:\\Data\\é«˜é€Ÿå…¬è·¯æ”¹æ‰©å»ºé¡¹ç›®-æ•°æ®\\BPLS\\UTM48_tran-las";
 	
 	//Read the point clouds' filename bounding box data 
 	t0 = clock();
@@ -254,10 +148,10 @@ int main(/*int argc, char** argv*/)
 
 
 
-//·ÏÆú²âÊÔ´úÂë;
+//åºŸå¼ƒæµ‹è¯•ä»£ç ;
 
 /*
-//¾«¶È¼ìºË£¬ÇóRMSE; (Ô­15cm×óÓÒ);
+//ç²¾åº¦æ£€æ ¸ï¼Œæ±‚RMSE; (åŸ15cmå·¦å³);
 DataIo <pcl::PointXYZ> io;
 std::vector <std::vector<double>> coordinatesA;
 std::vector <std::vector<double>> coordinatesB;
@@ -268,7 +162,7 @@ RMSE = io.cal_cor_RMSE(coordinatesA, coordinatesB);
 */
 
 /*
-//¸ßË¹Í¶Ó°×ªUTMÍ¶Ó°;
+//é«˜æ–¯æŠ•å½±è½¬UTMæŠ•å½±;
 string foldername;
 cout << "Input Folder Name" << endl;
 cin >> foldername;
@@ -285,7 +179,7 @@ for (int i = 0; i < filenames.size(); i++)
 */
 
 /*
-//µãÔÆ×ø±êÕûÌå±ä»»;
+//ç‚¹äº‘åæ ‡æ•´ä½“å˜æ¢;
 string foldername;
 cout << "Input Folder Name" << endl;
 cin >> foldername;
@@ -303,7 +197,7 @@ for (int i = 0; i < filenames.size(); i++)
 */
 
 /*
-//µãÔÆ×ø±êÕûÌåÆ½ÒÆ;
+//ç‚¹äº‘åæ ‡æ•´ä½“å¹³ç§»;
 string foldername;
 cout << "Input Folder Name" << endl;
 cin >> foldername;
@@ -325,7 +219,7 @@ for (int i = 0; i < filenames.size(); i++)
 */
 
 /*
-//7&4²ÎÊı×ø±ê×ª»»;
+//7&4å‚æ•°åæ ‡è½¬æ¢;
 DataIo <pcl::PointXYZ> io;
 std::vector <std::vector<double>> coordinatesA;
 std::vector <std::vector<double>> coordinatesB;
@@ -341,7 +235,7 @@ io.XYZ_7DOFCSTran(transpara);
 */
 
 /*
-//×ø±êÏµÍ¶Ó°±ä»»;
+//åæ ‡ç³»æŠ•å½±å˜æ¢;
 cout << "Processing the engineering coordinate system" << endl;
 float center_long_eng;
 cout << "Please enter the projection center longitude" << endl;
@@ -354,12 +248,12 @@ io.tran_wgs2eng(center_long_eng,proj_surface_h_eng);
 */
 
 /*
-//µãÔÆÊ±Ğò·Ö¿é;
+//ç‚¹äº‘æ—¶åºåˆ†å—;
 cout << "Please make sure all the ALS, MLS and BPLS point clouds are divided into blocks." << endl;
 cout << "If they are not divided, you can divide them now" << endl;
 float time_of_block;
 string ALS_folder;
-ALS_folder = "I:\\Data\\¸ßËÙ¹«Â·¸ÄÀ©½¨ÏîÄ¿-Êı¾İ\\ALS\\ALS_strips"; //
+ALS_folder = "I:\\Data\\é«˜é€Ÿå…¬è·¯æ”¹æ‰©å»ºé¡¹ç›®-æ•°æ®\\ALS\\ALS_strips"; //
 
 cout << "Please input the time step of a block in second" << endl;
 cin >> time_of_block;
@@ -380,7 +274,7 @@ cout << "Write File Done..." << endl;
 */
 
 /*
-//µãÔÆÁ½Á½Åä×¼;
+//ç‚¹äº‘ä¸¤ä¸¤é…å‡†;
 // Input the filename (Or just drag in) by yourself
 string filenameS, filenameT;
 //cout << "Input ALS Point Cloud File:" << endl;  //ALS
@@ -424,7 +318,7 @@ pcXYZIPtr regS(new pcXYZI()), regALS(new pcXYZI());  // regS: Transformed Sub-sa
 Eigen::Matrix4f Trans, TransALS;                     // Trans: TLS->TLS' for ALS (Target)   TransALS: ALS->ALS'  for TLS (Target)
 // other parameters
 int max_iter_num = 100;               // Maximum iteration number before convergence
-float overlap_search_radius = 5.0;   // The search radius in meter for overlapping ratio estimation [This is a subtle parameter, ³õÖµÔ½ºÃ£¬¸ÃÖµÉèµÄÔ½Ğ¡;]
+float overlap_search_radius = 5.0;   // The search radius in meter for overlapping ratio estimation [This is a subtle parameter, åˆå€¼è¶Šå¥½ï¼Œè¯¥å€¼è®¾çš„è¶Šå°;]
 int covariance_knn = 15;             // The number of neighbor points for covariance and normal calculation
 // Input Parameters
 cout << "Max iteration number is: " << endl; cin >> max_iter_num;
@@ -453,7 +347,7 @@ cout << "Write File Done..." << endl;
 */
 
 /*
-// Í¬Ãûµã×ø±ê×ª»»;
+// åŒåç‚¹åæ ‡è½¬æ¢;
 // For TLS test
 // Input the filename (Or just drag in) by yourself
 std::vector <std::vector<double>> coordinatesA;
@@ -489,7 +383,7 @@ cout << "Procession Done ..." << endl;
 */
 
 /*
-//ÊÖ¶¯ÍÏÈëµãÔÆÎÄ¼ş¼Ğ;
+//æ‰‹åŠ¨æ‹–å…¥ç‚¹äº‘æ–‡ä»¶å¤¹;
 //cout << "Input ALS Point Cloud (Blocks of all the strips) Folder:" << endl;
 //cin >> ALS_folder;
 //cout << "Input TLS Point Cloud Folder:" << endl;
@@ -499,4 +393,97 @@ cout << "Procession Done ..." << endl;
 //cout << "Input BPLS Point Cloud (Blocks) Folder:" << endl;
 //cin >> BPLS_folder;
 */
+
+/*
+	//ç‚¹äº‘ä¸¤ä¸¤é…å‡†;
+	// Input the filename (Or just drag in) by yourself
+	string filenameA, filenameB;
+	//cout << "Input ALS Point Cloud File:" << endl;  //ALS
+	//cin >> filenameT;
+	//cout << "Input TLS Point Cloud File:" << endl;  //TLS
+	//cin >> filenameS;
+	pcXYZPtr cloudA(new pcXYZ()), cloudB(new pcXYZ());
+	DataIo <pcl::PointXYZ> io;
+	//io.readCloudFile(filenameT, cloudT);
+	//io.readCloudFile(filenameS, cloudS);
+	//TLS+TLS test
+	io.readLasFile("7-1-TLS.las", cloudA, 1);
+	io.readLasFileLast("2-MLS.las", cloudB);
+	//ALS+ALS test
+	//io.readLasFile("1-3-11-ALS.las", cloudA, 1);
+	//io.readLasFileLast("2-1-11-ALS.las", cloudB);
+	//ALS+TLS test
+	//io.readLasFile("4-1-TLS.las", cloudA, 1);
+	//io.readLasFileLast("1-3-2-ALS.las", cloudB);
+	//.readLasFile("5-1-TLS.las", cloudA, 1);
+	//io.readLasFileLast("1-3-14-ALS.las", cloudB);
+	cout << "Read File Done..." << endl << "Raw point number: [ A:  " << cloudA->size() << "  , B:  " << cloudB->size() << " ]" << endl;
+	// Filter the Point Cloud for registration
+	pcXYZPtr subcloudA(new pcXYZ()), subcloudB(new pcXYZ());
+	float downsample_resolution_A;  //Voxel Down-sampling's size (unit:m)
+	float downsample_resolution_B;  //Voxel Down-sampling's size (unit:m)
+	cout << "Input A's downsample resolution." << endl; cin >> downsample_resolution_A;
+	cout << "Input B's downsample resolution." << endl; cin >> downsample_resolution_B;
+	VoxelFilter<pcl::PointXYZ> vf_A(downsample_resolution_A); VoxelFilter<pcl::PointXYZ> vf_B(downsample_resolution_B);
+	subcloudA = vf_A.filter(cloudA); subcloudB = vf_B.filter(cloudB);
+	cout << "Down-sampled point cloud number: [ A:  " << subcloudA->size() << " , B:  " << subcloudB->size() << " ]" << endl;
+	// Apply other filters here ...
+	// Fine Registration of ALS and TLS point cloud
+	cout << "Registration begin." << endl;
+	int icp_type = 0;
+	//cout << "Select the Registration Method." << endl;
+	//cout << "1.Point-to-Point ICP   2.Point-to-Plane ICP   3.Generalized ICP  [default 1]" << endl;
+	//cin >> icp_type;
+	bool use_reciprocal_correspondence = 0;
+	//cout << "Use Reciprocal Correspondences or not?  0. No  1. Yes  [default 0]" << endl;
+	//cin >> use_reciprocal_correspondence;
+	bool use_trimmed_rejector = 1;
+	//cout << "Use Trimmed Correspondences Rejector or not?  0. No  1. Yes  [default 1]" << endl;
+	//cin >> use_trimmed_rejector;
+	CRegistration <pcl::PointXYZ> reg;
+	pcXYZPtr regB(new pcXYZ()), regA(new pcXYZ());  // regS: Transformed Sub-sampled Source Cloud   regALS: Transformed Raw Source Cloud
+	Eigen::Matrix4f TransA2B, TransB2A;                     // Trans: TLS->TLS' for ALS (Target)   TransALS: ALS->ALS'  for TLS (Target)
+	// other parameters
+	int max_iter_num = 50;               // Maximum iteration number before convergence
+	float overlap_search_radius = 5.0;   // The search radius in meter for overlapping ratio estimation [This is a subtle parameter, åˆå€¼è¶Šå¥½ï¼Œè¯¥å€¼è®¾çš„è¶Šå°;]
+	int covariance_knn = 15;             // The number of neighbor points for covariance and normal calculation
+	float covariance_radius = 1.5;       //
+	float min_overlap_for_reg = 0.1;
+	//float overlap_ratio = 0.4; 
+	//Input Parameters
+	//cout << "Max iteration number is: " << endl; cin >> max_iter_num;  //50 ?
+	cout << "Overlap search radius is: " << endl; cin >> overlap_search_radius;  //1.0?
+	//cout << "Covariance calculate radius is: " << endl; cin >> covariance_radius;
+	//cout << "Overlap ratio is: " << endl; cin >> overlap_ratio;
+	reg.ptplicp_reg(subcloudB, subcloudA, regB, TransB2A, max_iter_num, use_reciprocal_correspondence, use_trimmed_rejector, overlap_search_radius, covariance_knn, min_overlap_for_reg);
+	reg.icp_reg(subcloudB, subcloudA, regB, TransB2A, max_iter_num, use_reciprocal_correspondence, use_trimmed_rejector, overlap_search_radius, min_overlap_for_reg);
+	reg.gicp_reg(subcloudB, subcloudA, regB, TransB2A, max_iter_num, use_reciprocal_correspondence, use_trimmed_rejector, overlap_search_radius, covariance_knn, min_overlap_for_reg);
+	
+
+	//Compare different registration method: ICPs on ALS2ALS and ALS2TLS testing cases
+	//
+	/*switch (icp_type)  // Do the registration
+	{
+	case 1:
+		reg.icp_reg(subcloudS, subcloudT, regS, Trans, max_iter_num, use_reciprocal_correspondence, use_trimmed_rejector, overlap_search_radius, 0.15);  // You can also use CloudT instead of subcloudT if efficiency is not your top priority
+		break;
+	case 2:
+		cout << " Attention please, The Input Point Clouds must have normal." << endl;
+		//regn.ptplicp_reg(subcloudS, cloudT, regS, Trans, max_iter_num, use_reciprocal_correspondence, use_trimmed_rejector, overlap_search_radius);
+		break;
+	case 3:
+		reg.gicp_reg(subcloudS, subcloudT, regS, Trans, covariance_knn, max_iter_num, use_reciprocal_correspondence, use_trimmed_rejector, overlap_search_radius);
+		break;
+	default:
+		reg.icp_reg(subcloudS, subcloudT, regS, Trans, max_iter_num, use_reciprocal_correspondence, use_trimmed_rejector, overlap_search_radius,0.15);
+		break;
+	}*/
+	//reg.invTransform(TransB2A, TransA2B);                //To get the transformation from ALS to ALS' with TLS as the target
+	//reg.transformcloud(cloudA, regA, TransA2B);          //To get the transformed ALS
+	//io.writeCloudFile("Acloud_after_registration.las", regA);
+	//cout << "Write File Done..." << endl;
+	//io.displaymulti(cloudS, cloudT, regALS, "TLS[R] ALS_before[B] ALS_transformed[G]"); // Display the result. Click "X" to continue.
+	//ALS2ALS  ç‚¹ç‚¹ICP 10s    ç‚¹é¢ICP 15s    GICP  19s
+	//ALS2TLS  ç‚¹ç‚¹ICP 25s    ç‚¹é¢ICP 35s    GICP  40s
+	//TLS2TLS  ç‚¹ç‚¹ICP 35s    ç‚¹é¢ICP 40s    GICP  45s
 
