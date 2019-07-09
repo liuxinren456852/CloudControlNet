@@ -5,6 +5,7 @@
 using namespace std;
 using namespace utility;
 
+# if 0
 void GlobalOptimize::optimizePoseGraph(vector<CloudBlock> &all_blocks, vector<Constraint> &all_cons)
 {
 
@@ -121,6 +122,8 @@ void GlobalOptimize::optimizePoseGraph(vector<CloudBlock> &all_blocks, vector<Co
 	}*/
 
 }
+
+# endif
 
 float GlobalOptimize::determineWeight(int node0_type, int node1_type, int edge_type)
 {

@@ -24,8 +24,8 @@ public:
 	typedef typename pcl::PointCloud<PointT>		PointCloud;
 	typedef typename pcl::PointCloud<PointT>::Ptr	PointCloudPtr;
 	
-	float V_boundingbox;    //bounding box Ìå»ý;
-	float _voxel_size;		//¸ñÍø´óÐ¡;
+	float V_boundingbox;    //bounding box ï¿½ï¿½ï¿½;
+	float _voxel_size;		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¡;
 
 	VoxelFilter(float voxel_size):_voxel_size(voxel_size) {}
 
@@ -36,21 +36,21 @@ public:
 		unsigned long long voxel_idx;
 		unsigned int idx;
 
-		//ÖØÔØ±È½Ïº¯Êý;
+		//ï¿½ï¿½ï¿½Ø±È½Ïºï¿½ï¿½ï¿½;
 		bool operator<(const IDPair& pair) { return voxel_idx < pair.voxel_idx; }
 	};
 
-	//½øÐÐ³éÏ¡;
+	//ï¿½ï¿½ï¿½Ð³ï¿½Ï¡;
 	PointCloudPtr filter(const PointCloudPtr& cloud_ptr)
 	{
-		//voxel´óÐ¡µÄµ¹Êý;
+		//voxelï¿½ï¿½Ð¡ï¿½Äµï¿½ï¿½ï¿½;
 		float inverse_voxel_size = 1.0f / _voxel_size;
 
-		//»ñÈ¡×î´ó×îÐ¡;
+		//ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½Ð¡;
 		Eigen::Vector4f min_p, max_p;
 		pcl::getMinMax3D(*cloud_ptr, min_p, max_p);
 
-		//¼ÆËã×Ü¹²µÄ¸ñ×ÓÊýÁ¿;
+		//ï¿½ï¿½ï¿½ï¿½ï¿½Ü¹ï¿½ï¿½Ä¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½;
 		Eigen::Vector4f gap_p;  //boundingbox gap;
 		gap_p = max_p - min_p;
 		
@@ -58,28 +58,28 @@ public:
 		unsigned long long max_vy = ceil(gap_p.coeff(1)*inverse_voxel_size)+1;
 		unsigned long long max_vz = ceil(gap_p.coeff(2)*inverse_voxel_size)+1;
 		
-		//ÅÐ¶¨¸ñ×ÓÊýÁ¿ÊÇ·ñ³¬¹ý¸ø¶¨Öµ;
+		//ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ñ³¬¹ï¿½ï¿½ï¿½ï¿½ï¿½Öµ;
 		if (max_vx*max_vy*max_vz >= std::numeric_limits<unsigned long long>::max())
 		{
 			std::cout << "Filtering Failed: The number of box exceed the limit."<<endl;
 		}
 
-		//¼ÆËã³Ë×Ó;
+		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½;
 		unsigned long long mul_vx = max_vy*max_vz;
 		unsigned long long mul_vy = max_vz;
 		unsigned long long mul_vz = 1;
 
-		//¼ÆËãËùÓÐµãµÄÎ»ÖÃ;
+		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ðµï¿½ï¿½Î»ï¿½ï¿½;
 		std::vector<IDPair> id_pairs(cloud_ptr->size());
 		unsigned int idx = 0;
-		for (PointCloud::iterator it = cloud_ptr->begin(); it != cloud_ptr->end(); it++)
+		for (typename PointCloud::iterator it = cloud_ptr->begin(); it != cloud_ptr->end(); it++)
 		{
-			//¼ÆËã±àºÅ;
+			//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½;
 			unsigned long long vx = floor((it->x - min_p.coeff(0))*inverse_voxel_size);
 			unsigned long long vy = floor((it->y - min_p.coeff(1))*inverse_voxel_size);
 			unsigned long long vz = floor((it->z - min_p.coeff(2))*inverse_voxel_size);
 
-			//¼ÆËã¸ñ×Ó±àºÅ;
+			//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó±ï¿½ï¿½;
 			unsigned long long voxel_idx = vx*mul_vx + vy*mul_vy + vz*mul_vz;
 
 			IDPair pair;
@@ -89,24 +89,24 @@ public:
 			idx++;
 		}
 
-		//½øÐÐÅÅÐò;
+		//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½;
 		std::sort(id_pairs.begin(), id_pairs.end());
 
-		//±£ÁôÃ¿¸ö¸ñ×ÓÖÐµÄÒ»¸öµã;
+		//ï¿½ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ðµï¿½Ò»ï¿½ï¿½ï¿½ï¿½;
 		unsigned int begin_id = 0;
 		PointCloudPtr result_ptr(new PointCloud);
 		while (begin_id < id_pairs.size())
 		{
-			//±£ÁôµÚÒ»¸öµã;
+			//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½;
 			result_ptr->push_back(cloud_ptr->points[id_pairs[begin_id].idx]);
 
-			//ÍùºóÏàÍ¬¸ñ×ÓµÄµã¶¼²»±£Áô;
+			//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¬ï¿½ï¿½ï¿½ÓµÄµã¶¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½;
 			unsigned int compare_id = begin_id + 1;
 			while (compare_id < id_pairs.size() && id_pairs[begin_id].voxel_idx == id_pairs[compare_id].voxel_idx)
 				compare_id++;
 			begin_id = compare_id;
 		}
-		//¼ÆËãboundingbox Ìå»ý;
+		//ï¿½ï¿½ï¿½ï¿½boundingbox ï¿½ï¿½ï¿½;
 		//V_boundingbox = gap_p[0] * gap_p[1] * gap_p[2];
 
 		return result_ptr;

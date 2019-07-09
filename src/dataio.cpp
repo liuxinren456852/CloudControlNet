@@ -8,6 +8,7 @@
 #include "utility.h"
 #include "GeoTran.h"
 #include "voxelFilter.h"
+#include "common_reg.h"
 
 #include <pcl/visualization/common/common.h>
 #include <pcl/visualization/pcl_visualizer.h>
@@ -23,6 +24,82 @@
 using namespace  std;
 using namespace  utility;
 using namespace  boost::filesystem;
+
+template <typename PointT>
+bool DataIo<PointT>::HDmap_data_import (const string &pointcloud_fileList, const string &pose_fileName, std::vector<Frame> &HD_map_data)
+{
+    //Import pointcloud filenames
+	vector<string> pointcloud_filenames;
+	ifstream lidar_file_list(pointcloud_fileList.c_str());
+	while (lidar_file_list.peek()!=EOF)
+    {   
+		string curfile;
+        lidar_file_list>>curfile;
+        pointcloud_filenames.push_back(curfile);
+	}
+    printf("Pointcloud filenames imported done, there are %d frames in [%s]\n",pointcloud_filenames.size(),pointcloud_fileList.c_str());
+
+	//Import poses
+    //Pose should be complete (corresponding to point cloud files)
+	vector<Eigen::Matrix4d> poses;
+    readposes(pose_fileName,poses);
+    printf("Pose imported done, there are %d frames in [%s]\n",poses.size(),pose_fileName.c_str());
+
+	//Save data
+	int HD_map_datasize=min_(pointcloud_filenames.size(),poses.size());
+	HD_map_data.resize(HD_map_datasize);
+	for (int i=0;i<HD_map_datasize;i++)
+	{
+		HD_map_data[i].unique_id=i;
+		HD_map_data[i].pcd_file_name=pointcloud_filenames[i];
+		HD_map_data[i].oxts_pose=poses[i];
+        HD_map_data[i].oxts_postion(0)=poses[i](0,3);
+		HD_map_data[i].oxts_postion(1)=poses[i](1,3);
+		HD_map_data[i].oxts_postion(2)=poses[i](2,3);
+
+	}
+	 printf("Save HDMap Data done, there are %d co-frames.\n",HD_map_datasize);
+
+}   
+
+
+template <typename PointT>
+bool DataIo<PointT>::readposes(const string &fileName, vector<Eigen::Matrix4d> &poses)
+{
+   std::ifstream in(fileName.c_str(),ios::in);
+	if (!in)
+	{
+		return 0;
+	}
+	
+    Eigen::Matrix4d pose_;
+    string file_;
+    int i = 0;
+
+	while (!in.eof())
+	{
+        in >> file_;
+        in >> pose_(0,0)>>  pose_(0,1) >>  pose_(0,2) >>  pose_(0,3);
+        in >> pose_(1,0)>>  pose_(1,1) >>  pose_(1,2) >>  pose_(1,3);
+        in >> pose_(2,0)>>  pose_(2,1) >>  pose_(2,2) >>  pose_(2,3);
+        
+        if (pose_(0,3)>1000000 || pose_(1,3)>1000000) printf("Translation is too large. Do global shift to avoid precison loss\n");
+		if (in.fail())
+		{
+			break;
+		}
+		pose_(3,0)=0;pose_(3,1)=0;pose_(3,2)=0;pose_(3,3)=1;
+		poses.push_back(pose_);
+        
+        //cout<<i<<endl<<poses[i]<<endl;
+
+        ++i;   
+	}
+	in.close();
+	//cout << "Import finished ... ..." << endl;
+	return 1;
+}
+
 
 template <typename PointT>
 bool DataIo<PointT>::readCloudFile(const string &fileName, const typename pcl::PointCloud<PointT>::Ptr &pointCloud)
@@ -150,7 +227,7 @@ bool DataIo<PointT>::readLasFileHeader(const std::string &fileName, liblas::Head
 	else
 	{
 		std::ifstream ifs;
-		ifs.open(fileName, std::ios::in | std::ios::binary);
+		ifs.open(fileName.c_str(), std::ios::in | std::ios::binary);
 		if (ifs.bad())
 		{
 			return 0;
@@ -175,7 +252,7 @@ bool DataIo<PointT>::readLasFile(const std::string &fileName, const typename pcl
 	}
 
 	std::ifstream ifs;
-	ifs.open(fileName, std::ios::in | std::ios::binary);
+	ifs.open(fileName.c_str(), std::ios::in | std::ios::binary);
 	if (ifs.bad())
 	{
 		cout << "Matched Terms are not found." << endl;
@@ -232,7 +309,7 @@ bool DataIo<PointT>::writeLasFile(const std::string &fileName, const typename pc
 	getCloudBound(*pointCloud, bound);
 
 	ofstream ofs;
-	ofs.open(fileName, std::ios::out | std::ios::binary);
+	ofs.open(fileName.c_str(), std::ios::out | std::ios::binary);
 	if (ofs.is_open())
 	{
 		liblas::Header header;
@@ -282,7 +359,7 @@ bool DataIo<PointT>::readLasFile(const std::string &fileName, const typename pcl
 	}
 
 	std::ifstream ifs;
-	ifs.open(fileName, std::ios::in | std::ios::binary);
+	ifs.open(fileName.c_str(), std::ios::in | std::ios::binary);
 	if (ifs.bad())
 	{
 		cout << "Matched Terms are not found." << endl;
@@ -340,7 +417,7 @@ bool DataIo<PointT>::readLasFile(const std::string &fileName, const typename pcl
 		PointT pt;
 		
 		//A translation to keep the precision
-		//×öÒ»¸öÆ½ÒÆ£¬·ñÔòÔÚUTM WGS84ÏÂµÄµã×ø±êÌ«´óÁË£¬»áÔì³É¾«¶ÈËðÊ§µÄ. ÒòÎªlasµÄ¶ÁÈ¡µãÊý¾ÝÊÇdoubleµÄ£¬¶øpcdÊÇfloatµÄ;
+		//ï¿½ï¿½Ò»ï¿½ï¿½Æ½ï¿½Æ£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½UTM WGS84ï¿½ÂµÄµï¿½ï¿½ï¿½ï¿½ï¿½Ì«ï¿½ï¿½ï¿½Ë£ï¿½ï¿½ï¿½ï¿½ï¿½É¾ï¿½ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½. ï¿½ï¿½Îªlasï¿½Ä¶ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½doubleï¿½Ä£ï¿½ï¿½ï¿½pcdï¿½ï¿½floatï¿½ï¿½;
 		pt.x = p.GetX() + global_shift[0];
 		pt.y = p.GetY() + global_shift[1];
 		pt.z = p.GetZ() + global_shift[2];
@@ -404,7 +481,7 @@ bool DataIo<PointT>::writeLasFile(const std::string &fileName, const typename pc
 	}
 
 	ofstream ofs;
-	ofs.open(fileName, std::ios::out | std::ios::binary);
+	ofs.open(fileName.c_str(), std::ios::out | std::ios::binary);
 	if (ofs.is_open())
 	{
 		liblas::Header header;
@@ -451,7 +528,7 @@ bool DataIo<PointT>::readLasFileLast(const string &fileName, const typename pcl:
 	}
 
 	std::ifstream ifs;
-	ifs.open(fileName, std::ios::in | std::ios::binary);
+	ifs.open(fileName.c_str(), std::ios::in | std::ios::binary);
 	if (ifs.bad())
 	{
 		cout << "Matched Terms are not found." << endl;
@@ -466,7 +543,7 @@ bool DataIo<PointT>::readLasFileLast(const string &fileName, const typename pcl:
 		PointT pt;
 
 		//A translation to keep the precision
-		//×öÒ»¸öÆ½ÒÆ£¬·ñÔòÔÚUTM WGS84ÏÂµÄµã×ø±êÌ«´óÁË£¬»áÔì³É¾«¶ÈËðÊ§µÄ. ÒòÎªlasµÄ¶ÁÈ¡µãÊý¾ÝÊÇdoubleµÄ£¬¶øpcdÊÇfloatµÄ;
+		//ï¿½ï¿½Ò»ï¿½ï¿½Æ½ï¿½Æ£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½UTM WGS84ï¿½ÂµÄµï¿½ï¿½ï¿½ï¿½ï¿½Ì«ï¿½ï¿½ï¿½Ë£ï¿½ï¿½ï¿½ï¿½ï¿½É¾ï¿½ï¿½ï¿½ï¿½ï¿½Ê§ï¿½ï¿½. ï¿½ï¿½Îªlasï¿½Ä¶ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½doubleï¿½Ä£ï¿½ï¿½ï¿½pcdï¿½ï¿½floatï¿½ï¿½;
 		pt.x = p.GetX() + global_shift[0];
 		pt.y = p.GetY() + global_shift[1];
 		pt.z = p.GetZ() + global_shift[2];
@@ -586,7 +663,7 @@ bool DataIo<PointT>::batchReadFileNamesInFoldersAndSubFolders(const std::string 
 }
 
 template <typename PointT>
-bool DataIo<PointT>::batchReadFileNamesInSubFolders(const std::string &folderName, const std::string & extension, std::vector<std::vector<std::string>> &fileNames)
+bool DataIo<PointT>::batchReadFileNamesInSubFolders(const std::string &folderName, const std::string & extension, std::vector<std::vector<std::string> > &fileNames)
 {
 	int subfolder_num = 0;
 
@@ -617,7 +694,7 @@ bool DataIo<PointT>::batchReadFileNamesInSubFolders(const std::string &folderNam
 
 template <typename PointT>
 void DataIo<PointT>::batchReadMultiSourceFileNamesInDataFolders(const std::string &ALS_folder, const std::string &TLS_folder, const std::string &MLS_folder, const std::string &BPLS_folder,
-	std::vector<std::vector<std::string>> &ALS_strip_files, std::vector<std::string> &TLS_files, std::vector<std::string> &MLS_files, std::vector<std::string> &BPLS_files)
+	std::vector<std::vector<std::string> > &ALS_strip_files, std::vector<std::string> &TLS_files, std::vector<std::string> &MLS_files, std::vector<std::string> &BPLS_files)
 {
 	batchReadFileNamesInSubFolders(ALS_folder, ".las", ALS_strip_files);
 	batchReadFileNamesInFolders(TLS_folder, ".las", TLS_files);
@@ -659,7 +736,7 @@ template <typename PointT>
 bool DataIo<PointT>::writeTxtFile(const string &fileName, const typename pcl::PointCloud<PointT>::Ptr &pointCloud)
 {
 	ofstream ofs;
-	ofs.open(fileName);
+	ofs.open(fileName.c_str());
 	if (ofs.is_open())
 	{
 		for (size_t i = 0; i < pointCloud->size(); ++i)
@@ -681,7 +758,7 @@ template <typename PointT>
 bool DataIo<PointT>::writeTxtFile(const string &fileName, const typename pcl::PointCloud<PointT>::Ptr &pointCloud, int subsample_ratio)
 {
 	ofstream ofs;
-    ofs.open(fileName);
+    ofs.open(fileName.c_str());
 	if (ofs.is_open())
 	{
 		for (size_t i = 0; i < pointCloud->size(); ++i)
@@ -815,7 +892,7 @@ void DataIo<PointT>::displaymulti(const typename pcl::PointCloud<PointT>::Ptr &C
 
 
 template <typename PointT>
-void DataIo<PointT>::ALS_block_by_time(const typename pcl::PointCloud<PointT>::Ptr &pointCloud, typename vector<pcl::PointCloud<PointT>> &CloudBlocks, float time_step_in_second)
+void DataIo<PointT>::ALS_block_by_time(const typename pcl::PointCloud<PointT>::Ptr &pointCloud, typename std::vector<pcl::PointCloud<PointT> > &CloudBlocks, float time_step_in_second)
 {
 	float time_max = -FLT_MAX;
 	float time_min = FLT_MAX;
@@ -839,7 +916,7 @@ void DataIo<PointT>::ALS_block_by_time(const typename pcl::PointCloud<PointT>::P
 	}
 }
 template <typename PointT>
-bool DataIo<PointT>::batchWriteBlockInColor(const string &fileName, typename vector<pcl::PointCloud<PointT>> &CloudBlocks, bool automatic_shift_or_not)
+bool DataIo<PointT>::batchWriteBlockInColor(const string &fileName, typename std::vector<pcl::PointCloud<PointT> >  &CloudBlocks, bool automatic_shift_or_not)
 {
 	global_shift.resize(3);
 
@@ -873,11 +950,11 @@ bool DataIo<PointT>::batchWriteBlockInColor(const string &fileName, typename vec
 
 		string BlockFolder, BlockFilename;
 		ostringstream oss;
-		oss.setf(ios::right);      //ÉèÖÃ¶ÔÆë·½Ê½ÎªÓÒ¶ÔÆë 
-		oss.fill('0');             //ÉèÖÃÌî³ä·½Ê½,²»×ãÎ»²¹0
-		oss.width(3);              //ÉèÖÃ¿í¶ÈÎª2£¬Ö»¶ÔÏÂÌõÊä³öÓÐÓÃ 
+		oss.setf(ios::right);      //ï¿½ï¿½ï¿½Ã¶ï¿½ï¿½ë·½Ê½Îªï¿½Ò¶ï¿½ï¿½ï¿½ 
+		oss.fill('0');             //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ä·½Ê½,ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½0
+		oss.width(3);              //ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½ï¿½Îª2ï¿½ï¿½Ö»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 
 		oss << j; 
-		// ´Ë´¦´æÒÉ£¬°´000£¬001£¬002ÕâÑùµÄË³ÐòÃüÃû;
+		// ï¿½Ë´ï¿½ï¿½ï¿½ï¿½É£ï¿½ï¿½ï¿½000ï¿½ï¿½001ï¿½ï¿½002ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½;
 		
 		BlockFolder = fileName.substr(0, fileName.rfind("."));
 
@@ -890,7 +967,7 @@ bool DataIo<PointT>::batchWriteBlockInColor(const string &fileName, typename vec
 		if (j == 0) cout << BlockFilename << endl;
 
 		ofstream ofs;
-		ofs.open(BlockFilename, std::ios::out | std::ios::binary);
+		ofs.open(BlockFilename.c_str(), std::ios::out | std::ios::binary);
 		if (ofs.is_open())
 		{
 			liblas::Header header;
@@ -957,7 +1034,7 @@ bool DataIo<PointT>::readindiceslist(std::vector<int> & indicesA, std::vector<in
 }
 
 template <typename PointT>
-bool DataIo<PointT>::readindiceslist(const typename pcl::PointCloud<PointT>::Ptr &CloudA, const typename pcl::PointCloud<PointT>::Ptr &CloudB, std::vector <std::vector<double>> & coordinatesA, std::vector <std::vector<double>> & coordinatesB)
+bool DataIo<PointT>::readindiceslist(const typename pcl::PointCloud<PointT>::Ptr &CloudA, const typename pcl::PointCloud<PointT>::Ptr &CloudB, std::vector <std::vector<double> > & coordinatesA, std::vector <std::vector<double> > & coordinatesB)
 {
 	string indiceslistFile;
 
@@ -1015,7 +1092,7 @@ bool DataIo<PointT>::readindiceslist(const typename pcl::PointCloud<PointT>::Ptr
 	cout << "Procession Done ..." << endl;
 }
 template <typename PointT>
-bool DataIo<PointT>::read_XYZ_XYZlist(std::vector <std::vector<double>> & coordinatesA, std::vector <std::vector<double>> & coordinatesB)
+bool DataIo<PointT>::read_XYZ_XYZlist(std::vector <std::vector<double> > & coordinatesA, std::vector <std::vector<double> > & coordinatesB)
 {
 	string XYZListFileA, XYZListFileB;
 
@@ -1081,7 +1158,7 @@ template <typename PointT>
 bool DataIo<PointT>::XYZ_4DOFCSTran(std::vector<double> &transpara)
 {
 	string XYZListFileA, XYZListFileB;
-	std::vector <std::vector<double>>  coordinatesA;
+	std::vector <std::vector<double> >  coordinatesA;
 	cout << "Please enter or drag in the XYZ List File of Coordinate System A" << endl
 		<< "Example [pointlist_XYZ_A.txt] :" << endl
 		<< "11.92,23.07,0.82" << endl
@@ -1115,7 +1192,7 @@ bool DataIo<PointT>::XYZ_4DOFCSTran(std::vector<double> &transpara)
 	cout << "Output the transformed result" << endl;
 	XYZListFileB = XYZListFileA.substr(0, XYZListFileA.rfind(".")) + "_utm.txt";
 	ofstream ofs;
-	ofs.open(XYZListFileB);
+	ofs.open(XYZListFileB.c_str());
 	if (ofs.is_open())
 	{
 		for (int j = 0; j < i; j++)
@@ -1139,7 +1216,7 @@ template <typename PointT>
 bool DataIo<PointT>::XYZ_7DOFCSTran(std::vector<double> &transpara)
 {
 	string XYZListFileA, XYZListFileB;
-	std::vector <std::vector<double>>  coordinatesA;
+	std::vector <std::vector<double> >  coordinatesA;
 	cout << "Please enter or drag in the XYZ List File of Coordinate System A" << endl
 		<< "Example [pointlist_XYZ_A.txt] :" << endl
 		<< "11.92,23.07,0.82" << endl
@@ -1173,7 +1250,7 @@ bool DataIo<PointT>::XYZ_7DOFCSTran(std::vector<double> &transpara)
 	cout << "Output the transformed result" << endl;
 	XYZListFileB = XYZListFileA.substr(0, XYZListFileA.rfind(".")) + "_utm.txt";
 	ofstream ofs;
-	ofs.open(XYZListFileB);
+	ofs.open(XYZListFileB.c_str());
 	if (ofs.is_open())
 	{
 		for (int j = 0; j < i; j++)
@@ -1194,7 +1271,7 @@ bool DataIo<PointT>::XYZ_7DOFCSTran(std::vector<double> &transpara)
 }
 
 template <typename PointT>
-double DataIo<PointT>::cal_cor_RMSE(std::vector <std::vector<double>> & coordinatesA, std::vector <std::vector<double>> & coordinatesB)
+double DataIo<PointT>::cal_cor_RMSE(std::vector <std::vector<double> > & coordinatesA, std::vector <std::vector<double> > & coordinatesB)
 {
 	int pointnumberA, pointnumberB, pointnumbercheck;
 	double squaredist, RMSE;
@@ -1217,6 +1294,7 @@ double DataIo<PointT>::cal_cor_RMSE(std::vector <std::vector<double>> & coordina
 	return RMSE;
 }
 
+# if 0
 template <typename PointT>
 bool DataIo<PointT>::tran_eng2utm(float centerlong_eng_proj)
 {
@@ -1253,8 +1331,8 @@ bool DataIo<PointT>::tran_eng2utm(float centerlong_eng_proj)
 			break;
 		}
 
-		cout.setf(ios::showpoint);  //½«Ð¡Êý¾«¶ÈºóÃæµÄ0ÏÔÊ¾³öÀ´;
-		cout.precision(12);         //ÉèÖÃÊä³ö¾«¶È£¬±£ÁôÓÐÐ§Êý×Ö;
+		cout.setf(ios::showpoint);  //ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½ï¿½Èºï¿½ï¿½ï¿½ï¿½0ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½;
+		cout.precision(12);         //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§ï¿½ï¿½ï¿½ï¿½;
 
 		gt.XYZ2BLH_ENG(PtENGXYZ, centerlong_eng_proj, PtBLH);
 		cout << PtBLH[0] << " , " << PtBLH[1] << " , " << PtBLH[2] << endl;
@@ -1303,8 +1381,8 @@ bool DataIo<PointT>::tran_wgs2eng(float centerlong_eng_proj, float proj_surface_
 			break;
 		}
 
-		cout.setf(ios::showpoint);  //½«Ð¡Êý¾«¶ÈºóÃæµÄ0ÏÔÊ¾³öÀ´;
-		cout.precision(12);         //ÉèÖÃÊä³ö¾«¶È£¬±£ÁôÓÐÐ§Êý×Ö;
+		cout.setf(ios::showpoint);  //ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½ï¿½Èºï¿½ï¿½ï¿½ï¿½0ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½;
+		cout.precision(12);         //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§ï¿½ï¿½ï¿½ï¿½;
 
 		gt.BLH2XYZ_CGCS(PtBLH, centerlong_eng_proj,proj_surface_h_eng ,PtENGXYZ);
 		cout << PtENGXYZ[0] << " , " << PtENGXYZ[1] << " , " << PtENGXYZ[2] << endl;
@@ -1317,9 +1395,8 @@ bool DataIo<PointT>::tran_wgs2eng(float centerlong_eng_proj, float proj_surface_
 	return 1;
 }
 
-
 template <typename PointT>
-bool DataIo<PointT>::read_XYZ_BLHlist(std::vector <std::vector<double>> & coordinatesSC_XYZ, std::vector <std::vector<double>> & coordinatesUTM_XYZ)
+bool DataIo<PointT>::read_XYZ_BLHlist(std::vector <std::vector<double> > & coordinatesSC_XYZ, std::vector <std::vector<double> > & coordinatesUTM_XYZ)
 {
 	string XYZListFileA, BLHListFileB;
 
@@ -1383,8 +1460,8 @@ bool DataIo<PointT>::read_XYZ_BLHlist(std::vector <std::vector<double>> & coordi
 		}
 		utmzone = gt.BLH2XYZ_WGS84(Pt, PtUTM);
 
-		cout.setf(ios::showpoint);  //½«Ð¡Êý¾«¶ÈºóÃæµÄ0ÏÔÊ¾³öÀ´;
-		cout.precision(12);         //ÉèÖÃÊä³ö¾«¶È£¬±£ÁôÓÐÐ§Êý×Ö;
+		cout.setf(ios::showpoint);  //ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½ï¿½Èºï¿½ï¿½ï¿½ï¿½0ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½;
+		cout.precision(12);         //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§ï¿½ï¿½ï¿½ï¿½;
 
 		cout << PtUTM[0] << " , " << PtUTM[1] << " , " << PtUTM[2] << endl;
 		coordinatesUTM_XYZ.push_back(PtUTM);
@@ -1394,6 +1471,7 @@ bool DataIo<PointT>::read_XYZ_BLHlist(std::vector <std::vector<double>> & coordi
 
 	cout << "Procession Done ..." << endl;
 }
+# endif
 
 template <typename PointT>
 bool DataIo<PointT>::readLasBlock(const string &fileName, int data_type_, int strip_num_, int num_in_strip_, CloudBlock & block)
@@ -1404,7 +1482,7 @@ bool DataIo<PointT>::readLasBlock(const string &fileName, int data_type_, int st
 	}
 
 	std::ifstream ifs;
-	ifs.open(fileName, std::ios::in | std::ios::binary);
+	ifs.open(fileName.c_str(), std::ios::in | std::ios::binary);
 	if (ifs.bad())
 	{
 		cout << "Matched Terms are not found." << endl;
@@ -1436,8 +1514,8 @@ bool DataIo<PointT>::readLasBlock(const string &fileName, int data_type_, int st
 }
 
 template <typename PointT>
-void DataIo<PointT>::batchReadMultiSourceLasBlock(std::vector<std::vector<std::string>> &ALS_strip_files, std::vector<std::string> &TLS_files, std::vector<std::string> &MLS_files, std::vector<std::string> &BPLS_files,
-	std::vector<std::vector<CloudBlock>> &ALS_strip_blocks, std::vector<CloudBlock> &TLS_blocks, std::vector<CloudBlock> &MLS_blocks, std::vector<CloudBlock> &BPLS_blocks, std::vector<CloudBlock> &All_blocks)
+void DataIo<PointT>::batchReadMultiSourceLasBlock(std::vector<std::vector<std::string> > &ALS_strip_files, std::vector<std::string> &TLS_files, std::vector<std::string> &MLS_files, std::vector<std::string> &BPLS_files,
+	std::vector<std::vector<CloudBlock> > &ALS_strip_blocks, std::vector<CloudBlock> &TLS_blocks, std::vector<CloudBlock> &MLS_blocks, std::vector<CloudBlock> &BPLS_blocks, std::vector<CloudBlock> &All_blocks)
 {
 	//ALS 
 	int ALS_count = 0;
@@ -1495,7 +1573,7 @@ void DataIo<PointT>::pcXYZ2XY(const typename pcl::PointCloud<PointT>::Ptr &point
 {
 	for (size_t i = 0; i < pointcloudxyz->size(); i++)
 	{
-		pxl::PointXY ptXY;
+		pcl::PointXY ptXY;
 		ptXY.x = pointcloudxyz->points[i].x;
 		ptXY.y = pointcloudxyz->points[i].y;
 		pointcloudxy->push_back(ptXY);
@@ -1751,7 +1829,7 @@ bool DataIo<PointT>::lasfileGK2UTM(const string &fileName)
 	}
 
 	std::ifstream ifs;
-	ifs.open(fileName, std::ios::in | std::ios::binary);
+	ifs.open(fileName.c_str(), std::ios::in | std::ios::binary);
 	if (ifs.bad())
 	{
 		cout << "Matched Terms are not found." << endl;
@@ -1774,7 +1852,7 @@ bool DataIo<PointT>::lasfileGK2UTM(const string &fileName)
 	string fileNameout = fileName.substr(0, fileName.rfind(".")) + "_utm.las";
 
 	ofstream ofs;
-	ofs.open(fileNameout, std::ios::out | std::ios::binary);
+	ofs.open(fileNameout.c_str(), std::ios::out | std::ios::binary);
 
 	if (ofs.is_open())
 	{
@@ -1824,7 +1902,7 @@ bool DataIo<PointT>::lasfileshift(const string &fileName, vector<double> &shift)
 	}
 
 	std::ifstream ifs;
-	ifs.open(fileName, std::ios::in | std::ios::binary);
+	ifs.open(fileName.c_str(), std::ios::in | std::ios::binary);
 	if (ifs.bad())
 	{
 		cout << "Matched Terms are not found." << endl;
@@ -1841,11 +1919,11 @@ bool DataIo<PointT>::lasfileshift(const string &fileName, vector<double> &shift)
 	Zmax = header.GetMaxZ();
 
 	string fileNameout = fileName.substr(0, fileName.rfind(".")) + "_t.las";  
-	//find ´ÓÇ°Íùºó²éÕÒ;
-	//rfind ´ÓºóÍùÇ°²éÕÒ;
+	//find ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½;
+	//rfind ï¿½Óºï¿½ï¿½ï¿½Ç°ï¿½ï¿½ï¿½ï¿½;
 
 	ofstream ofs;
-	ofs.open(fileNameout, std::ios::out | std::ios::binary);
+	ofs.open(fileNameout.c_str(), std::ios::out | std::ios::binary);
 
 	if (ofs.is_open())
 	{
@@ -1884,7 +1962,7 @@ bool DataIo<PointT>::lasfileshift(const string &fileName, vector<double> &shift)
 }
 
 template <typename PointT>
-void DataIo<PointT>::readLasCloudPairfromCon(const Constraint &this_con, std::vector<std::vector<std::string>> &ALS_strip_files, std::vector<std::string> &TLS_files, std::vector<std::string> &MLS_files, std::vector<std::string> &BPLS_files,
+void DataIo<PointT>::readLasCloudPairfromCon(const Constraint &this_con, std::vector<std::vector<std::string> > &ALS_strip_files, std::vector<std::string> &TLS_files, std::vector<std::string> &MLS_files, std::vector<std::string> &BPLS_files,
 	string &Filename1, string &Filename2, typename pcl::PointCloud<PointT>::Ptr &cloud1, typename pcl::PointCloud<PointT>::Ptr &cloud2)
 {
 	//Find the file index
@@ -1923,7 +2001,7 @@ void DataIo<PointT>::readLasCloudPairfromCon(const Constraint &this_con, std::ve
 		break;
 	}
 
-	//Import the point clouds for registration  // Ã¿´ÎÑ­»·ÉÏÒ»´ÎµÄµãÔÆ´æ´¢¿Õ¼ä»á±»ÊÍ·Åµô;
+	//Import the point clouds for registration  // Ã¿ï¿½ï¿½Ñ­ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ÎµÄµï¿½ï¿½Æ´æ´¢ï¿½Õ¼ï¿½á±»ï¿½Í·Åµï¿½;
 	// Cloud1:T  Cloud2:S  Trans12=inv(Trans21)=inv(RegTrans)  
 	readLasFile(Filename1, cloud1, 1);
 	LOG(INFO) << "Read File " << this_con.block1.data_type << "-" << this_con.block1.strip_num << "-" << this_con.block1.num_in_strip << " Done...";
@@ -1983,9 +2061,9 @@ void DataIo<PointT>::batchdownsamplepair(const Constraint &this_con, typename pc
 }
 
 template <typename PointT>
-void DataIo<PointT>::batchwritefinalcloud(vector<CloudBlock> &All_blocks, std::vector<std::vector<std::string>> &ALS_strip_files, std::vector<std::string> &TLS_files, std::vector<std::string> &MLS_files, std::vector<std::string> &BPLS_files)
+void DataIo<PointT>::batchwritefinalcloud(vector<CloudBlock> &All_blocks, std::vector<std::vector<std::string> > &ALS_strip_files, std::vector<std::string> &TLS_files, std::vector<std::string> &MLS_files, std::vector<std::string> &BPLS_files)
 {
-	for (auto iter = All_blocks.begin(); iter != All_blocks.end(); iter++)
+	for (vector<CloudBlock>::iterator iter = All_blocks.begin(); iter != All_blocks.end(); iter++)
 	{
 		string Filenamein, Folderout, Filenameout;
 		switch ((*iter).data_type)
@@ -2015,7 +2093,7 @@ void DataIo<PointT>::batchwritefinalcloud(vector<CloudBlock> &All_blocks, std::v
 
 		Filenameout = Folderout + Filenamein.substr(Filenamein.rfind("\\"), Filenamein.rfind(".") - Filenamein.rfind("\\")) + "_refine_out.las";
 		
-		pcl::PointCloud<PointT>::Ptr cloudin(new pcl::PointCloud<PointT>()), cloudout(new pcl::PointCloud<PointT>());
+		typename pcl::PointCloud<PointT>::Ptr cloudin(new pcl::PointCloud<PointT>()), cloudout(new pcl::PointCloud<PointT>());
 		readLasFile(Filenamein, cloudin, 1);
 		CRegistration <PointT> regx;
 		//Eigen::Matrix4f corrected_pose;
@@ -2024,7 +2102,7 @@ void DataIo<PointT>::batchwritefinalcloud(vector<CloudBlock> &All_blocks, std::v
 		writeLasFile(Filenameout, cloudout, 1);
 		LOG(INFO) << "Output Done for cloud with index " << (*iter).unique_index;
 		LOG(INFO) << "Its position is " << Filenameout;
-		//Î»×Ë½á¹ûÓ¦¸Ã·´¹ýÀ´; ok
-		//Êä³öµÄÊ±ºòµÄdriftµÄÎÊÌâ; not ok yet
+		//Î»ï¿½Ë½ï¿½ï¿½Ó¦ï¿½Ã·ï¿½ï¿½ï¿½ï¿½ï¿½; ok
+		//ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½driftï¿½ï¿½ï¿½ï¿½ï¿½ï¿½; not ok yet
 	}
 }

@@ -18,41 +18,41 @@
 #include <opencv2/core/core_c.h>
 
 #include <vector>
-#include <concurrent_vector.h>
-#include <ppl.h>
+//#include <concurrent_vector>
+//#include <ppl>
 
 using namespace  std;
 
 namespace utility
 {
-	struct eigenValue  // ÌØÕ÷Öµ ÆäÖÐ,lamada1 > lamada2 > lamada3;
+	struct eigenValue  // ï¿½ï¿½ï¿½ï¿½Öµ ï¿½ï¿½ï¿½ï¿½,lamada1 > lamada2 > lamada3;
 	{
 		double lamada1;
 		double lamada2;
 		double lamada3;
 	};
 
-	struct eigenVector  //ÌØÕ÷ÏòÁ¿ ·Ö±ð¶ÔÓ¦ÌØÕ÷Öµ;
+	struct eigenVector  //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ö±ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½Öµ;
 	{
 		Eigen::Vector3f principalDirection;
 		Eigen::Vector3f middleDirection;
 		Eigen::Vector3f normalDirection;
 	};
 
-	struct pcaFeature  //PCA ÌØÕ÷;
+	struct pcaFeature  //PCA ï¿½ï¿½ï¿½ï¿½;
 	{
-		eigenValue values;  //ÌØÕ÷Öµ;
-		eigenVector vectors;//ÌØÕ÷ÏòÁ¿;
-		double curvature;   //ÇúÂÊ;
-		double linear;      //Ïß×´ÐÔ[¸ùºÅÐÍ];
-		double planar;      //Ãæ×´ÐÔ[¸ùºÅÐÍ];
-		double spherical;   //Çò×´ÐÔ[¸ùºÅÐÍ];
-		double linear_2;    //Ïß×´ÐÔ[ÎÞ¸ùºÅÐÍ];
-		double planar_2;    //Ãæ×´ÐÔ[ÎÞ¸ùºÅÐÍ];
-		double spherical_2; //Çò×´ÐÔ[ÎÞ¸ùºÅÐÍ];
-		pcl::PointXYZI pt;  //ÖÐÐÄµã;
-		size_t ptId;        //ÖÐÐÄµãºÅ;
-		size_t ptNum;       //ÁÚÓòµãÊý;
+		eigenValue values;  //ï¿½ï¿½ï¿½ï¿½Öµ;
+		eigenVector vectors;//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½;
+		double curvature;   //ï¿½ï¿½ï¿½ï¿½;
+		double linear;      //ï¿½ï¿½×´ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½];
+		double planar;      //ï¿½ï¿½×´ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½];
+		double spherical;   //ï¿½ï¿½×´ï¿½ï¿½[ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½];
+		double linear_2;    //ï¿½ï¿½×´ï¿½ï¿½[ï¿½Þ¸ï¿½ï¿½ï¿½ï¿½ï¿½];
+		double planar_2;    //ï¿½ï¿½×´ï¿½ï¿½[ï¿½Þ¸ï¿½ï¿½ï¿½ï¿½ï¿½];
+		double spherical_2; //ï¿½ï¿½×´ï¿½ï¿½[ï¿½Þ¸ï¿½ï¿½ï¿½ï¿½ï¿½];
+		pcl::PointXYZI pt;  //ï¿½ï¿½ï¿½Äµï¿½;
+		size_t ptId;        //ï¿½ï¿½ï¿½Äµï¿½ï¿½;
+		size_t ptNum;       //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½;
 	};
 
 	template<typename PointT>
@@ -74,7 +74,7 @@ namespace utility
 			pcl::NormalEstimationOMP<PointT, pcl::Normal> ne;
 			ne.setInputCloud(inputPointCloud);
 			// Create an empty kd-tree representation, and pass it to the normal estimation object;
-			pcl::search::KdTree<PointT>::Ptr tree(new pcl::search::KdTree<PointT>());
+			typename pcl::search::KdTree<PointT>::Ptr tree(new pcl::search::KdTree<PointT>());
 			ne.setSearchMethod(tree);
 			// Use all neighbors in a sphere of radius;
 			ne.setRadiusSearch(radius);
@@ -107,7 +107,7 @@ namespace utility
 			pcl::NormalEstimationOMP<PointT, pcl::Normal> ne;
 			ne.setInputCloud(inputPointCloud);
 			// Create an empty kd-tree representation, and pass it to the normal estimation object;
-			pcl::search::KdTree<PointT>::Ptr tree(new pcl::search::KdTree<PointT>());
+			typename pcl::search::KdTree<PointT>::Ptr tree(new pcl::search::KdTree<PointT>());
 			ne.setSearchMethod(tree);
 			// Use all neighbors in a sphere of radius;
 			ne.setKSearch(K);
@@ -143,24 +143,27 @@ namespace utility
 			float radius,
 			std::vector<pcaFeature> &features)
 		{
-			pcl::KdTreeFLANN<PointT> tree; //KD TreeË÷Òý¶ÔÏó;
-			tree.setInputCloud(inputPointCloud);   //½¨KD Tree;
+			pcl::KdTreeFLANN<PointT> tree; //KD Treeï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½;
+			tree.setInputCloud(inputPointCloud);   //ï¿½ï¿½KD Tree;
 			features.resize(inputPointCloud->size());
 
-			concurrency::parallel_for(size_t(0), inputPointCloud->points.size(), [&](size_t i)   //²¢ÐÐ´¦ÀíµãÔÆËùÓÐµã;
+			//concurrency::parallel_for(size_t(0), inputPointCloud->points.size(), [&](size_t i)   //ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ðµï¿½;
+			//{
+			for (int i=0;i<inputPointCloud->points.size();i++)
 			{
-				//ÁÚÓòËÑË÷ËùÓÃ±äÁ¿;
-				vector<int> search_indices; //Vector ÁÚÓòµãÐòºÅ;
-				vector<float> distances;    //Vector ÁÚÓòµãµ½ËÑË÷µãµÄ¾àÀë;
+				//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã±ï¿½ï¿½ï¿½;
+				vector<int> search_indices; //Vector ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½;
+				vector<float> distances;    //Vector ï¿½ï¿½ï¿½ï¿½ãµ½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¾ï¿½ï¿½ï¿½;
 				vector<int>().swap(search_indices);
 				vector<float>().swap(distances);
 
-				tree.radiusSearch(i, radius, search_indices, distances);  //KD tree Ö¸¶¨°ë¾¶ËÑË÷;
-				features[i].pt = inputPointCloud->points[i];//ËÑË÷µã;
-				features[i].ptId = i;                       //ËÑË÷µãÐòºÅ;
-				features[i].ptNum = search_indices.size();  //ËÑË÷µãµÄÁÚÓòµãÊý;
-				CalculatePcaFeature(inputPointCloud, search_indices, features[i]); //¶ÔËÑË÷µã×öPCA;
-			});
+				tree.radiusSearch(i, radius, search_indices, distances);  //KD tree Ö¸ï¿½ï¿½ï¿½ë¾¶ï¿½ï¿½ï¿½ï¿½;
+				features[i].pt = inputPointCloud->points[i];//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½;
+				features[i].ptId = i;                       //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½;
+				features[i].ptNum = search_indices.size();  //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½;
+				CalculatePcaFeature(inputPointCloud, search_indices, features[i]); //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½PCA;
+			}
+			//});
 
 			return true;
 		}
@@ -219,7 +222,7 @@ namespace utility
 			}
 			else
 			{
-				feature.curvature = feature.values.lamada3 / (feature.values.lamada1 + feature.values.lamada2 + feature.values.lamada3);   //ÇúÂÊµÄËã·¨ÊÇ×îÐ¡µÄ eigen value ³ýÒÔÈý¸ö eigen value Ö®ºÍ;
+				feature.curvature = feature.values.lamada3 / (feature.values.lamada1 + feature.values.lamada2 + feature.values.lamada3);   //ï¿½ï¿½ï¿½Êµï¿½ï¿½ã·¨ï¿½ï¿½ï¿½ï¿½Ð¡ï¿½ï¿½ eigen value ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ eigen value Ö®ï¿½ï¿½;
 
 			}
 
@@ -257,13 +260,13 @@ namespace utility
 					normals->points[i].curvature = 0.0;
 				}
 
-				if (_isnan(normals->points[i].curvature))
-				{
-					normals->points[i].normal_x = 0.577;
-					normals->points[i].normal_y = 0.577;
-					normals->points[i].normal_z = 0.577;
-					normals->points[i].curvature = 0.0;
-				}
+				// if (_isnan(normals->points[i].curvature))
+				// {
+				// 	normals->points[i].normal_x = 0.577;
+				// 	normals->points[i].normal_y = 0.577;
+				// 	normals->points[i].normal_z = 0.577;
+				// 	normals->points[i].curvature = 0.0;
+				// }
 			}
 		}
 	};

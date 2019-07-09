@@ -7,7 +7,7 @@
 #ifndef COMMON_REG_H
 #define COMMON_REG_H
 
-#include <Eigen/dense>
+#include <Eigen/Dense>
 #include "find_constraint.h"
 #include "utility.h"
 
@@ -134,11 +134,11 @@ public:
 	
 	//Brief: Using the Gauss-Newton Least Square Method to solve 4 Degree of Freedom Transformation from no less than 2 points
 	//cp_number is the control points' number for LLS calculation, the rest of points are used to check the accuracy;
-	bool LLS_4DOF(const std::vector <std::vector<double>> & coordinatesA, const std::vector <std::vector<double>> & coordinatesB, Matrix4d & TransMatrixA2B, int cp_number, double theta0_degree); //X Y Z yaw
-	bool SVD_6DOF(const std::vector <std::vector<double>> & coordinatesA, const std::vector <std::vector<double>> & coordinatesB, Matrix4d & TransMatrixA2B, int cp_number);   //X Y Z roll pitch yaw
+	bool LLS_4DOF(const std::vector <std::vector<double> > & coordinatesA, const std::vector <std::vector<double> > & coordinatesB, Matrix4d & TransMatrixA2B, int cp_number, double theta0_degree); //X Y Z yaw
+	bool SVD_6DOF(const std::vector <std::vector<double> > & coordinatesA, const std::vector <std::vector<double> > & coordinatesB, Matrix4d & TransMatrixA2B, int cp_number);   //X Y Z roll pitch yaw
 
-	bool CSTRAN_4DOF(const std::vector <std::vector<double>> & coordinatesA, const std::vector <std::vector<double>> & coordinatesB, std::vector<double> &transpara, int cp_number);  // X Y yaw scale
-	bool CSTRAN_7DOF(const std::vector <std::vector<double>> & coordinatesA, const std::vector <std::vector<double>> & coordinatesB, std::vector<double> &transpara, int cp_number);  // X Y Z roll pitch yaw scale
+	bool CSTRAN_4DOF(const std::vector <std::vector<double> > & coordinatesA, const std::vector <std::vector<double> > & coordinatesB, std::vector<double> &transpara, int cp_number);  // X Y yaw scale
+	bool CSTRAN_7DOF(const std::vector <std::vector<double> > & coordinatesA, const std::vector <std::vector<double> > & coordinatesB, std::vector<double> &transpara, int cp_number);  // X Y Z roll pitch yaw scale
 
 	void Perturbation(const typename pcl::PointCloud<PointT>::Ptr & Cloud, typename pcl::PointCloud<PointT>::Ptr & CloudAfterPerturbation, float pertubate_value, std::vector<float> &pertubate_vector);
 

@@ -10,37 +10,37 @@ using namespace Eigen;
 
 namespace utility
 {
-	struct CloudBlock  //µãÔÆ¿é£¨Õ¾£©;
+	struct CloudBlock  //ï¿½ï¿½ï¿½Æ¿é£¨Õ¾ï¿½ï¿½;
 	{
-		int unique_index;   //ÔÚËùÓÐBlockÖÐµÄÎ¨Ò»Ê¶±ðºÅ;
-		int strip_num;      //º½´øÐòºÅ,¶ÔÓÚ·ÇALSµãÔÆ£¬Ä¬ÈÏÎª0;
-		int num_in_strip;   //Ò»Ìõº½´øÄÚµÄ¿éÐòºÅ;
-		int data_type;      //ÄÄÖÖÆ½Ì¨²É¼¯µÄµãÔÆ£º1.»úÔØ  2.µØÃæÕ¾  3.³µÔØ  4.±³°ü;
+		int unique_index;   //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Blockï¿½Ðµï¿½Î¨Ò»Ê¶ï¿½ï¿½ï¿½;
+		int strip_num;      //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½,ï¿½ï¿½ï¿½Ú·ï¿½ALSï¿½ï¿½ï¿½Æ£ï¿½Ä¬ï¿½ï¿½Îª0;
+		int num_in_strip;   //Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÚµÄ¿ï¿½ï¿½ï¿½ï¿½;
+		int data_type;      //ï¿½ï¿½ï¿½ï¿½Æ½Ì¨ï¿½É¼ï¿½ï¿½Äµï¿½ï¿½Æ£ï¿½1.ï¿½ï¿½ï¿½ï¿½  2.ï¿½ï¿½ï¿½ï¿½Õ¾  3.ï¿½ï¿½ï¿½ï¿½  4.ï¿½ï¿½ï¿½ï¿½;
 		Bounds bound;       //Bounding Box
 		CenterPoint cp;     //Center Point
 		Eigen::Matrix4f optimized_pose;   //Transformation Matrix after optimization
 	};
 
-	struct Constraint //Ô¼Êø±ß;
+	struct Constraint //Ô¼ï¿½ï¿½ï¿½ï¿½;
 	{
-		CloudBlock block1, block2; //ËùÁ¬½ÓµÄÁ½¸öµãÔÆ¿é;
-		int con_type;              //Ô¼ÊøÀàÐÍ£º1.ÁÚ½ÓÆ½»¬ 2.ÖØµþÅä×¼;
-		Eigen::Matrix4f Trans1_2 = Eigen::Matrix4f::Identity(4,4);  //Ô¼Êøpose±ä»¯¹Û²â;
-		float confidence;          //¸Ã±ä»»µÄÖÃÐÅ¶È;
+		CloudBlock block1, block2; //ï¿½ï¿½ï¿½ï¿½ï¿½Óµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ¿ï¿½;
+		int con_type;              //Ô¼ï¿½ï¿½ï¿½ï¿½ï¿½Í£ï¿½1.ï¿½Ú½ï¿½Æ½ï¿½ï¿½ 2.ï¿½Øµï¿½ï¿½ï¿½×¼;
+		Eigen::Matrix4f Trans1_2 = Eigen::Matrix4f::Identity(4,4);  //Ô¼ï¿½ï¿½poseï¿½ä»¯ï¿½Û²ï¿½;
+		float confidence;          //ï¿½Ã±ä»»ï¿½ï¿½ï¿½ï¿½ï¿½Å¶ï¿½;
 	};
 
 	class Constraint_Finder
 	{
 	public:
 		// Constraint Type 1
-		void find_strip_adjacent_constraint(vector<vector<CloudBlock>> &blocks_all, vector<Constraint> &innerstrip_cons_all);
+		void find_strip_adjacent_constraint(vector<vector<CloudBlock> > &blocks_all, vector<Constraint> &innerstrip_cons_all);
 		void find_adjacent_constraint_in_strip(vector<CloudBlock> &blocks_strip, vector<Constraint> &innerstrip_cons);
 
 		// Constraint Type 2
 		void find_overlap_registration_constraint(vector<CloudBlock> &blocks, vector<Constraint> &registration_cons_all, int k_search_neighbo, double min_iou);
 
 		// Batch Construct Constraints
-		void batch_find_multisource_constranits(std::vector<std::vector<CloudBlock>> &ALS_strip_blocks, std::vector<CloudBlock> &TLS_blocks, std::vector<CloudBlock> &MLS_blocks, std::vector<CloudBlock> &BPLS_blocks, std::vector<CloudBlock> &All_blocks,
+		void batch_find_multisource_constranits(std::vector<std::vector<CloudBlock> > &ALS_strip_blocks, std::vector<CloudBlock> &TLS_blocks, std::vector<CloudBlock> &MLS_blocks, std::vector<CloudBlock> &BPLS_blocks, std::vector<CloudBlock> &All_blocks,
 			std::vector<Constraint> &ALS_inner_strip_cons_all, std::vector<Constraint> &MLS_adjacent_cons, std::vector<Constraint> &BPLS_adjacent_cons, std::vector<Constraint> &registration_cons, std::vector<Constraint> &All_cons,
 			int overlap_Registration_KNN, float overlap_Registration_OverlapRatio);
 

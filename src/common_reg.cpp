@@ -11,7 +11,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/kdtree/kdtree_flann.h>
-#include <pcl/features/from_meshes.h>
+//#include <pcl/features/from_meshes.h>
 #include <pcl/features/fpfh.h>
 #include <pcl/features/fpfh_omp.h> 
 #include <pcl/registration/correspondence_estimation.h>
@@ -21,7 +21,7 @@
 #include <pcl/registration/transformation_estimation_svd.h>
 #include <glog/logging.h>
 
-#include <Eigen/dense>
+#include <Eigen/Dense>
 #include <cmath>
 #include "common_reg.h"
 #include "PCA.h"
@@ -89,7 +89,7 @@ bool CRegistration<PointT>::icp_reg(const typename pcl::PointCloud<PointT>::Ptr 
 	icp.setEuclideanFitnessEpsilon(1e-5);   //Quite hard to happen
 	
 	icp.align(*TransformedSource);  //Use closed-form SVD to estimate transformation for each iteration [You can switch to L-M Optimization]
-	transformationS2T = icp.getFinalTransformation().cast<float>();
+	transformationS2T = icp.getFinalTransformation();
 	
 	t1=clock();
 
@@ -382,14 +382,14 @@ void CRegistration<PointT>::compute_fpfh_feature(const typename pcl::PointCloud<
 	est_fpfh.setNumberOfThreads(4);
 	est_fpfh.setInputCloud(input_cloud);
 	est_fpfh.setInputNormals(cloud_normal);
-	pcl::search::KdTree<PointT>::Ptr tree(new pcl::search::KdTree<PointT>());
+	typename pcl::search::KdTree<PointT>::Ptr tree(new pcl::search::KdTree<PointT>());
 	est_fpfh.setSearchMethod(tree);
 	//est_fpfh.setKSearch(20);
 	est_fpfh.setRadiusSearch(2.0*search_radius);
 	est_fpfh.compute(*cloud_fpfh);
 }
 
-
+#if 0
 template<typename PointT>
 void CRegistration<PointT>::Coarsereg_FPFHSAC(const typename pcl::PointCloud<PointT>::Ptr & SourceCloud,
 	const typename pcl::PointCloud<PointT>::Ptr & TargetCloud,
@@ -419,10 +419,10 @@ void CRegistration<PointT>::Coarsereg_FPFHSAC(const typename pcl::PointCloud<Poi
 	t1 = clock();
 	// Commented these out if you don't want to output the registration log
 	cout << "FPFH-SAC done in " << float(t1 - t0) / CLOCKS_PER_SEC << " s" << endl << transformationS2T << endl;
-	cout << "The fitness score of this registration is " << gicp.getFitnessScore() << endl;
+	cout << "The fitness score of this registration is " << sac_ia.getFitnessScore() << endl;
 	cout << "-----------------------------------------------------------------------------" << endl;
 }
-
+#endif
 
 template<typename PointT>
 void CRegistration<PointT>::Perturbation(const typename pcl::PointCloud<PointT>::Ptr & Cloud, typename pcl::PointCloud<PointT>::Ptr & CloudAfterPerturbation, float pertubate_value, std::vector<float> &pertubate_vector)
@@ -445,7 +445,7 @@ void CRegistration<PointT>::Perturbation(const typename pcl::PointCloud<PointT>:
 
 
 template<typename PointT>
-bool CRegistration<PointT>::CSTRAN_4DOF(const std::vector <std::vector<double>> & coordinatesA, const std::vector <std::vector<double>> & coordinatesB, std::vector<double> &transpara, int cp_number)
+bool CRegistration<PointT>::CSTRAN_4DOF(const std::vector <std::vector<double> > & coordinatesA, const std::vector <std::vector<double> > & coordinatesB, std::vector<double> &transpara, int cp_number)
 {
 	double tx,ty,a,b;                   // 4 parameters 
 	double s, rot_rad, rot_degree;
@@ -537,7 +537,7 @@ bool CRegistration<PointT>::CSTRAN_4DOF(const std::vector <std::vector<double>> 
 }
 
 template<typename PointT>
-bool CRegistration<PointT>::CSTRAN_7DOF(const std::vector <std::vector<double>> & coordinatesA, const std::vector <std::vector<double>> & coordinatesB, std::vector<double> &transpara, int cp_number)
+bool CRegistration<PointT>::CSTRAN_7DOF(const std::vector <std::vector<double> > & coordinatesA, const std::vector <std::vector<double> > & coordinatesB, std::vector<double> &transpara, int cp_number)
 {
 	double RMSE_check, sum_squaredist;
 	int pointnumberA, pointnumberB, pointnumbercheck;
@@ -642,7 +642,7 @@ bool CRegistration<PointT>::CSTRAN_7DOF(const std::vector <std::vector<double>> 
 //Brief: Using the Gauss-Newton Least Square Method to solve 4 Degree of Freedom Transformation from no less than 2 points
 //cp_number is the control points' number for LLS calculation, the rest of points are used to check the accuracy;
 template<typename PointT>
-bool CRegistration<PointT>::LLS_4DOF(const std::vector <std::vector<double>> & coordinatesA, const std::vector <std::vector<double>> & coordinatesB, Matrix4d & TransMatrixA2B, int cp_number, double theta0_degree)
+bool CRegistration<PointT>::LLS_4DOF(const std::vector <std::vector<double> > & coordinatesA, const std::vector <std::vector<double> > & coordinatesB, Matrix4d & TransMatrixA2B, int cp_number, double theta0_degree)
 {
 	Vector4d transAB;
 	Vector4d temp_trans;
@@ -797,7 +797,7 @@ bool CRegistration<PointT>::LLS_4DOF(const std::vector <std::vector<double>> & c
 }
 
 template<typename PointT>
-bool CRegistration<PointT>::SVD_6DOF(const std::vector <std::vector<double>> & coordinatesA, const std::vector <std::vector<double>> & coordinatesB, Matrix4d & TransMatrixA2B, int cp_number)
+bool CRegistration<PointT>::SVD_6DOF(const std::vector <std::vector<double> > & coordinatesA, const std::vector <std::vector<double> > & coordinatesB, Matrix4d & TransMatrixA2B, int cp_number)
 {
 	Matrix4f transAB2D;
 	pcl::PointCloud<PointT> Points2D_A, Points2D_B;
@@ -914,12 +914,12 @@ bool CRegistration<PointT>::add_registration_edge(const typename pcl::PointCloud
 	float cloud_Registration_PerturbateValue, int cloud_Registration_MaxIterNumber, bool cloud_Registration_UseReciprocalCorres, bool cloud_Registration_UseTrimmedRejector, float cloud_Registration_OverlapSearchRadius, int covariance_K, float cloud_Registration_MinOverlapForReg)
 {
 	//Apply perturbation
-	pcl::PointCloud<PointT>::Ptr subcloud1_perturbated(new pcl::PointCloud<PointT>());
+	typename pcl::PointCloud<PointT>::Ptr subcloud1_perturbated(new pcl::PointCloud<PointT>());
 	std::vector<float> p_vector(3, 0);
 	Perturbation(subcloud1, subcloud1_perturbated,cloud_Registration_PerturbateValue, p_vector);
 
 	//ICP Registration  [Trimmed Point-to-Point ICP / or you can switch to other metrics]
-	pcl::PointCloud<PointT>::Ptr regcloud2(new pcl::PointCloud<PointT>());
+	typename pcl::PointCloud<PointT>::Ptr regcloud2(new pcl::PointCloud<PointT>());
 	Eigen::Matrix4f Trans2_1p, Trans1p_2;
 	if (ptplicp_reg(subcloud2, subcloud1_perturbated, regcloud2, Trans2_1p, cloud_Registration_MaxIterNumber, cloud_Registration_UseReciprocalCorres, cloud_Registration_UseTrimmedRejector, cloud_Registration_OverlapSearchRadius, covariance_K, cloud_Registration_MinOverlapForReg))
 	{

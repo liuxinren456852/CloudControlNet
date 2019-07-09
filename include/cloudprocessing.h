@@ -7,8 +7,6 @@
 #ifndef CLOUD_PRO_H
 #define CLOUD_PRO_H
 
-#include <Eigen/dense>
-
 #include "utility.h"
 
 using namespace utility;
@@ -20,13 +18,13 @@ class CProceesing
 {
 public:
 
-	void GroundFilter_PMF(const typename pcl::PointCloud<PointT>::Ptr &cloud, typename pcl::PointCloud<PointT>::Ptr &gcloud, typename pcl::PointCloud<PointT>::Ptr &ngcloud, int max_window_size, float slope, float initial_distance, float max_distance);   // PMF ·¨µØÃæÂË²¨;
+	void GroundFilter_PMF(const typename pcl::PointCloud<PointT>::Ptr &cloud, typename pcl::PointCloud<PointT>::Ptr &gcloud, typename pcl::PointCloud<PointT>::Ptr &ngcloud, int max_window_size, float slope, float initial_distance, float max_distance);   // PMF ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë²ï¿½;
 
-	void planesegRansac(const typename pcl::PointCloud<PointT>::Ptr &cloud, float threshold, typename pcl::PointCloud<PointT>::Ptr & planecloud );    //Ransac Æ½ÃæÄâºÏ;
+	void planesegRansac(const typename pcl::PointCloud<PointT>::Ptr &cloud, float threshold, typename pcl::PointCloud<PointT>::Ptr & planecloud );    //Ransac Æ½ï¿½ï¿½ï¿½ï¿½ï¿½;
 	
-	void groundprojection(const typename pcl::PointCloud<PointT>::Ptr &cloud, typename pcl::PointCloud<PointT>::Ptr & projcloud);                     //µãÔÆÍ¶Ó°;
+	void groundprojection(const typename pcl::PointCloud<PointT>::Ptr &cloud, typename pcl::PointCloud<PointT>::Ptr & projcloud);                     //ï¿½ï¿½ï¿½ï¿½Í¶Ó°;
 
-	void SORFilter(const typename pcl::PointCloud<PointT>::Ptr & incloud, int MeanK, double std, typename pcl::PointCloud<PointT>::Ptr & outcloud);   //SOR £¨Statisics Outliers Remover);
+	void SORFilter(const typename pcl::PointCloud<PointT>::Ptr & incloud, int MeanK, double std, typename pcl::PointCloud<PointT>::Ptr & outcloud);   //SOR ï¿½ï¿½Statisics Outliers Remover);
 
 	void alphashape(const typename pcl::PointCloud<PointT>::Ptr &cloud, float alpha_value, typename pcl::PointCloud<PointT>::Ptr & boundary_cloud);   //Concave Hull Generation with alpha_shape;
 

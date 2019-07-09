@@ -15,10 +15,19 @@
 #include <pcl/impl/point_types.hpp>
 #include <pcl/impl/pcl_base.hpp>
 
+//Eigen
+#include <Eigen/Dense>
+#include <Eigen/Core>
+
 #include <vector>
 #include <list>
 
 using namespace std;
+
+
+//Max and Min
+#define max_(a,b) (((a) > (b)) ? (a) : (b))
+#define min_(a,b) (((a) < (b)) ? (a) : (b))
 
 //TypeDef 
 typedef  pcl::PointCloud<pcl::PointXYZI>::Ptr        pcXYZIPtr;
@@ -47,7 +56,7 @@ typedef  pcl::PointCloud<pcl::FPFHSignature33>       fpfhFeature;
 
 namespace utility
 {
-	struct CenterPoint //中心点
+	struct CenterPoint 
 	{
 		double x;
 		double y;
@@ -60,7 +69,7 @@ namespace utility
 		}
 	};
 
-	struct Bounds //包围盒
+	struct Bounds 
 	{
 		double min_x;
 		double min_y;
@@ -72,6 +81,27 @@ namespace utility
 		{
 			min_x = min_y = min_z = max_x = max_y = max_z = 0.0;
 		}
+	};
+   
+
+    struct Frame
+	{
+        int unique_id;
+		int type;
+		int transaction_id;
+
+		string pcd_file_name;
+		Eigen::Matrix4d oxts_pose;
+        Eigen::Vector3d oxts_postion;
+		timeval time_stamp;
+    
+		Bounds boundingbox;
+		CenterPoint centerpoint;
+		Eigen::Matrix4d optimized_pose;
+        
+		Frame* lastframe;
+		pcl::PointCloud<pcl::PointXYZI>::Ptr pointcloud;
+
 	};
 
 	struct Grid
@@ -177,7 +207,7 @@ namespace utility
 		//Get Bound of Subsets of a Point Cloud
 		void GetSubsetBoundary(typename pcl::PointCloud<PointT>::Ptr & cloud, vector<int> & index, Bounds & bound)
 		{
-			pcl::PointCloud<PointT>::Ptr temp_cloud(new pcl::PointCloud<PointT>);
+			typename pcl::PointCloud<PointT>::Ptr temp_cloud(new pcl::PointCloud<PointT>);
 			for (int i = 0; i < index.size(); i++)
 			{
 				temp_cloud->push_back(cloud->points[index[i]]);

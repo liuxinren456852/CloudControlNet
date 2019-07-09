@@ -1,7 +1,7 @@
 #ifndef GEOTRAN_H
 #define GEOTRAN_H
 
-#include <ogr_spatialref.h>
+//#include <ogr_spatialref.h>
 //#include "cpl_conv.h"
 
 #include <vector>
@@ -13,6 +13,7 @@ class GeoTransform
 {
 public:
 
+#if 0
 	//Convert [Longitude,Latitude,Elevation] Coordinate to [X,Y,Z] Coordinate by UTM projection under WGS84 System
 	int BLH2XYZ_WGS84(const std::vector<double> &BLH_coord, std::vector<double> &XYZ_coord)
 	{
@@ -146,6 +147,8 @@ public:
 	//BLH2XYZ_WGS84(BLH_coord,XYZ_utm_coord);
 
 	//Try 4DOF Coordinate Transformation. 
+
+#endif
 
 protected:
 	double MeanRofEarth(double a, double b, double B)

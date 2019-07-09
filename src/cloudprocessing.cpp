@@ -80,8 +80,8 @@ void CProceesing<PointT>::groundprojection(const typename pcl::PointCloud<PointT
 template<typename PointT>
 void CProceesing<PointT>::alphashape(const typename pcl::PointCloud<PointT>::Ptr &cloud, float alpha_value, typename pcl::PointCloud<PointT>::Ptr & boundary_cloud)
 {
-	pcl::ConcaveHull<PointT> chull;   //´´½¨±ßÔµÌáÈ¡¶ÔÏó;
-	chull.setInputCloud(cloud);       //ÉèÖÃÊäÈëµãÔÆ;
+	pcl::ConcaveHull<PointT> chull;   //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ôµï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½;
+	chull.setInputCloud(cloud);       //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½;
 	chull.setAlpha(alpha_value);      
 	chull.reconstruct(boundary_cloud);
 	//std::cout<< "Concave hull has: " << boundary_cloud->points.size() << " data points." << endl;
@@ -90,16 +90,16 @@ void CProceesing<PointT>::alphashape(const typename pcl::PointCloud<PointT>::Ptr
 template<typename PointT>
 void CProceesing<PointT>::CornerpointKNN(const typename pcl::PointCloud<PointT>::Ptr & boundary_cloud, int K, float disthreshold, float maxcos, typename pcl::PointCloud<PointT>::Ptr & corner_cloud)   
 {
-	// ÏÈ½¨KDtree
+	// ï¿½È½ï¿½KDtree
 	pcl::KdTreeFLANN <PointT> kdtree;
 	kdtree.setInputCloud(boundary_cloud);
 
-	vector<int> pointIdxNKNSearch(K);         //¾àÀëÉýÐòÅÅÁÐ
-	vector<float> pointNKNSquaredDistance(K); //×¢ÒâÊÇ¾àÀëÆ½·½
+	vector<int> pointIdxNKNSearch(K);         //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	vector<float> pointNKNSquaredDistance(K); //×¢ï¿½ï¿½ï¿½Ç¾ï¿½ï¿½ï¿½Æ½ï¿½ï¿½
 
 	for (int i = 0; i < boundary_cloud->size(); i++){
 
-		kdtree.nearestKSearch(boundary_cloud->points[i], K, pointIdxNKNSearch, pointNKNSquaredDistance);  // K ½üÁÚËÑË÷½á¹û
+		kdtree.nearestKSearch(boundary_cloud->points[i], K, pointIdxNKNSearch, pointNKNSquaredDistance);  // K ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		float max1_max2;
 		max1_max2 = sqrt(pointNKNSquaredDistance[K - 1]) - sqrt(pointNKNSquaredDistance[K - 2]);
 
@@ -110,14 +110,14 @@ void CProceesing<PointT>::CornerpointKNN(const typename pcl::PointCloud<PointT>:
 		Xa = boundary_cloud->points[pointIdxNKNSearch[K - 1]].x;
 		Ya = boundary_cloud->points[pointIdxNKNSearch[K - 1]].y;
 
-		if (max1_max2 < disthreshold)  //Èô¾àÀë×î´óÓë´Î´óµã¼ä¾àÐ¡ÓÚãÐÖµ£¬ÈÏÎªËüÃÇ´¦ÓÚÍ¬²à£¬ÕÒÒì²àµã
+		if (max1_max2 < disthreshold)  //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½Ç´ï¿½ï¿½ï¿½Í¬ï¿½à£¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		{
 			float maxdis = 0;
 			int maxindex = -1;
 			float Xc, Yc, Xd, Yd;
 			Xc = boundary_cloud->points[pointIdxNKNSearch[K - 2]].x;
 			Yc = boundary_cloud->points[pointIdxNKNSearch[K - 2]].y;
-			//´ÎÔ¶µãÕÒÖ®Ç°ÁÚÓòµãÖÐµÄ×îÔ¶µã
+			//ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½Ö®Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ðµï¿½ï¿½ï¿½Ô¶ï¿½ï¿½
 			for (int j = 0; j < K - 2; j++){
 				Xd = boundary_cloud->points[pointIdxNKNSearch[j]].x;
 				Yd = boundary_cloud->points[pointIdxNKNSearch[j]].y;
@@ -133,25 +133,25 @@ void CProceesing<PointT>::CornerpointKNN(const typename pcl::PointCloud<PointT>:
 			Yb = boundary_cloud->points[pointIdxNKNSearch[maxindex]].y;
 		}
 
-		//·ñÔòÖ±½Ó½ÓÊÜ
+		//ï¿½ï¿½ï¿½ï¿½Ö±ï¿½Ó½ï¿½ï¿½ï¿½
 		else{
 			Xb = boundary_cloud->points[pointIdxNKNSearch[K - 2]].x;
 			Yb = boundary_cloud->points[pointIdxNKNSearch[K - 2]].y;
 		}
-		//¼Ð½Ç¼ÆËã
+		//ï¿½Ð½Ç¼ï¿½ï¿½ï¿½
 		AOpBO = (Xa - Xo)*(Xb - Xo) + (Ya - Yo)*(Yb - Yo);
 		AO = sqrt((Xa - Xo)*(Xa - Xo) + (Ya - Yo)*(Ya - Yo));
 		BO = sqrt((Xb - Xo)*(Xb - Xo) + (Yb - Yo)*(Yb - Yo));
 		cosAOB = abs(AOpBO / AO / BO);
 
-		if (cosAOB < maxcos) corner_cloud->push_back(boundary_cloud->points[i]);  //¼Ð½ÇÂú×ãÌõ¼þ£¬ÈÏÎªÊÇ½Çµã
+		if (cosAOB < maxcos) corner_cloud->push_back(boundary_cloud->points[i]);  //ï¿½Ð½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½Ç½Çµï¿½
 	}
 }
 
 template<typename PointT>
 void CProceesing<PointT>::CornerpointRadius(const typename pcl::PointCloud<PointT>::Ptr & boundary_cloud, float radius, float disthreshold, float maxcos, typename pcl::PointCloud<PointT>::Ptr & corner_cloud)
 {
-	// ÏÈ½¨KDtree
+	// ï¿½È½ï¿½KDtree
 	pcl::KdTreeFLANN <PointT> kdtree;
 	kdtree.setInputCloud(boundary_cloud);
 
@@ -163,7 +163,7 @@ void CProceesing<PointT>::CornerpointRadius(const typename pcl::PointCloud<Point
 
 		if (kdtree.radiusSearch(boundary_cloud->points[i], radius, pointIdxRadiusSearch, pointRadiusSquaredDistance)>2){
 
-			int K = pointIdxRadiusSearch.size(); // Radius ÄÚµÄ½üÁÚµãÊý
+			int K = pointIdxRadiusSearch.size(); // Radius ï¿½ÚµÄ½ï¿½ï¿½Úµï¿½ï¿½ï¿½
 
 			float max1_max2;
 			max1_max2 = sqrt(pointRadiusSquaredDistance[K - 1]) - sqrt(pointRadiusSquaredDistance[K - 2]);
@@ -172,17 +172,17 @@ void CProceesing<PointT>::CornerpointRadius(const typename pcl::PointCloud<Point
 
 			Xo = boundary_cloud->points[i].x;
 			Yo = boundary_cloud->points[i].y;
-			Xa = boundary_cloud->points[pointIdxNKNSearch[K - 1]].x;
-			Ya = boundary_cloud->points[pointIdxNKNSearch[K - 1]].y;
+			Xa = boundary_cloud->points[pointIdxRadiusSearch[K - 1]].x;
+			Ya = boundary_cloud->points[pointIdxRadiusSearch[K - 1]].y;
 
-			if (max1_max2 < disthreshold)  //Èô¾àÀë×î´óÓë´Î´óµã¼ä¾àÐ¡ÓÚãÐÖµ£¬ÈÏÎªËüÃÇ´¦ÓÚÍ¬²à£¬ÕÒÒì²àµã
+			if (max1_max2 < disthreshold)  //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½Ç´ï¿½ï¿½ï¿½Í¬ï¿½à£¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 			{
 				float maxdis = 0;
 				int maxindex = -1;
 				float Xc, Yc, Xd, Yd;
 				Xc = boundary_cloud->points[pointIdxRadiusSearch[K - 2]].x;
 				Yc = boundary_cloud->points[pointIdxRadiusSearch[K - 2]].y;
-				//´ÎÔ¶µãÕÒÖ®Ç°ÁÚÓòµãÖÐµÄ×îÔ¶µã
+				//ï¿½ï¿½Ô¶ï¿½ï¿½ï¿½ï¿½Ö®Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ðµï¿½ï¿½ï¿½Ô¶ï¿½ï¿½
 				for (int j = 0; j < K - 2; j++){
 					Xd = boundary_cloud->points[pointIdxRadiusSearch[j]].x;
 					Yd = boundary_cloud->points[pointIdxRadiusSearch[j]].y;
@@ -198,18 +198,18 @@ void CProceesing<PointT>::CornerpointRadius(const typename pcl::PointCloud<Point
 				Yb = boundary_cloud->points[pointIdxRadiusSearch[maxindex]].y;
 			}
 
-			//·ñÔòÖ±½Ó½ÓÊÜ
+			//ï¿½ï¿½ï¿½ï¿½Ö±ï¿½Ó½ï¿½ï¿½ï¿½
 			else{
 				Xb = boundary_cloud->points[pointIdxRadiusSearch[K - 2]].x;
 				Yb = boundary_cloud->points[pointIdxRadiusSearch[K - 2]].y;
 			}
-			//¼Ð½Ç¼ÆËã
+			//ï¿½Ð½Ç¼ï¿½ï¿½ï¿½
 			AOpBO = (Xa - Xo)*(Xb - Xo) + (Ya - Yo)*(Yb - Yo);
 			AO = sqrt((Xa - Xo)*(Xa - Xo) + (Ya - Yo)*(Ya - Yo));
 			BO = sqrt((Xb - Xo)*(Xb - Xo) + (Yb - Yo)*(Yb - Yo));
 			cosAOB = abs(AOpBO / AO / BO);
 
-			if (cosAOB < maxcos) corner_cloud->push_back(boundary_cloud->points[i]);  //¼Ð½ÇÂú×ãÌõ¼þ£¬ÈÏÎªÊÇ½Çµã
+			if (cosAOB < maxcos) corner_cloud->push_back(boundary_cloud->points[i]);  //ï¿½Ð½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½Ç½Çµï¿½
 		}
 	}
 }
