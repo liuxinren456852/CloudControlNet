@@ -7,6 +7,8 @@
 
 #define max_(a,b) (((a) > (b)) ? (a) : (b))
 #define min_(a,b) (((a) < (b)) ? (a) : (b))
+#define abs_(a) (((a) < (0)) ? (-a) : (a))
+
 
 void Constraint_Finder::find_adjacent_constraint_in_strip(vector<CloudBlock> &blocks_strip, vector<Constraint> &innerstrip_cons)
 {
@@ -20,7 +22,7 @@ void Constraint_Finder::find_adjacent_constraint_in_strip(vector<CloudBlock> &bl
 	}
 }
 
-void Constraint_Finder::find_strip_adjacent_constraint(vector<vector<CloudBlock>> &blocks_all, vector<Constraint> &innerstrip_cons_all)
+void Constraint_Finder::find_strip_adjacent_constraint(vector<vector<CloudBlock> > &blocks_all, vector<Constraint> &innerstrip_cons_all)
 {
 	for (int i = 0; i < blocks_all.size(); i++)
 	{
@@ -63,7 +65,7 @@ void Constraint_Finder::find_overlap_registration_constraint(vector<CloudBlock> 
         
 		for (int j = 0; j < pointIdx.size(); j++)
 		{
-			//Ч�ʿ�����;
+			
 			double iou = calculate_iou(blocks[i].bound, blocks[pointIdx[j]].bound);
 			bool is_adjacent = judge_adjacent(blocks[i],blocks[pointIdx[j]]);
 
@@ -93,6 +95,41 @@ bool Constraint_Finder::judge_adjacent(CloudBlock & block1, CloudBlock & block2)
 	return is_adjacent;
 }
 
+
+bool Constraint_Finder::judge_adjacent_hdmap_index(Frame & frame1, Frame & frame2, int index_min_interval)
+{
+	bool is_adjacent = false;
+	
+	if (frame1.type == frame2.type && frame1.transaction_id ==  frame2.transaction_id)
+	{
+		if (abs_(frame1.id_in_transaction - frame2.id_in_transaction) <= index_min_interval)
+		{
+			is_adjacent=true;
+		}
+	}
+	return is_adjacent;
+}
+
+
+bool Constraint_Finder::judge_adjacent_hdmap_time(Frame & frame1, Frame & frame2, double min_deltatime_in_us)
+{
+	bool is_adjacent = false;
+	
+
+	if (frame1.type == frame2.type && frame1.transaction_id ==  frame2.transaction_id)
+	{
+		double deltatime_in_us=abs_( (frame1.time_stamp.tv_sec * 1000000 + frame1.time_stamp.tv_usec) -
+			(frame2.time_stamp.tv_sec * 1000000 + frame2.time_stamp.tv_usec) );
+		
+		if (deltatime_in_us <= min_deltatime_in_us)
+		{
+			is_adjacent=true;
+		}
+	}
+	return is_adjacent;
+}
+
+
 double Constraint_Finder::calculate_iou(Bounds & bound1, Bounds & bound2)
 {
 	double area1 = (bound1.max_x - bound1.min_x) * (bound1.max_y - bound1.min_y); 
@@ -114,7 +151,7 @@ double Constraint_Finder::calculate_iou(Bounds & bound1, Bounds & bound2)
 	return iou;
 }
 
-void Constraint_Finder::batch_find_multisource_constranits(std::vector<std::vector<CloudBlock>> &ALS_strip_blocks, std::vector<CloudBlock> &TLS_blocks, std::vector<CloudBlock> &MLS_blocks, std::vector<CloudBlock> &BPLS_blocks, std::vector<CloudBlock> &All_blocks,
+void Constraint_Finder::batch_find_multisource_constraints(std::vector<std::vector<CloudBlock> > &ALS_strip_blocks, std::vector<CloudBlock> &TLS_blocks, std::vector<CloudBlock> &MLS_blocks, std::vector<CloudBlock> &BPLS_blocks, std::vector<CloudBlock> &All_blocks,
 	std::vector<Constraint> &ALS_inner_strip_cons_all, std::vector<Constraint> &MLS_adjacent_cons, std::vector<Constraint> &BPLS_adjacent_cons, std::vector<Constraint> &registration_cons, std::vector<Constraint> &All_cons,
 	int overlap_Registration_KNN, float overlap_Registration_OverlapRatio)
 {
@@ -135,4 +172,79 @@ void Constraint_Finder::batch_find_multisource_constranits(std::vector<std::vect
 	cout << "The number of adjacent constraints : " << adjacent_cons_num << endl;
 	cout << "The number of registration constraints : " << registration_cons.size() << endl;
 	cout << "!----------------------------------------------------------------------------!" << endl;
+}
+
+void Constraint_Finder::find_hdmap_adjacent_constraints(vector<Frame> &HDmap_frames, vector<Edge_between_2Frames> &HDmap_adjacent_edges)
+{
+   //Fix it for multi-transaction cases
+   for (int i = 0; i < HDmap_frames.size() - 1; i++)
+	{
+		Edge_between_2Frames edge_adjacent;
+		edge_adjacent.frame1 = HDmap_frames[i];
+		edge_adjacent.frame2 = HDmap_frames[i+1];
+		edge_adjacent.type = ADJACENT;   
+		HDmap_adjacent_edges.push_back(edge_adjacent);
+	}
+}
+
+
+void Constraint_Finder::find_hdmap_revisit_constraints(vector<Frame> &HDmap_frames, vector<Edge_between_2Frames> &HDmap_revisit_edges,  int index_min_interval, float max_revisit_pos_distance)
+{
+	pcl::PointCloud<pcl::PointXY>::Ptr cp_cloud(new pcl::PointCloud<pcl::PointXY>());
+	
+	for (int i = 0; i < HDmap_frames.size(); i++)
+	{
+		pcl::PointXY cp;
+		cp.x = HDmap_frames[i].oxts_position(0);
+		cp.y = HDmap_frames[i].oxts_position(1);
+		cp_cloud->push_back(cp);
+	}
+
+	pcl::KdTreeFLANN<pcl::PointXY> kdtree;
+	kdtree.setInputCloud(cp_cloud);	
+
+	for (int i = 0; i < HDmap_frames.size(); i++)
+	{
+		std::vector<int> pointIdx;
+		std::vector<float> pointSquaredDistance;
+
+		pcl::PointXY cp_search;
+		cp_search.x = HDmap_frames[i].oxts_position(0);
+		cp_search.y = HDmap_frames[i].oxts_position(1);
+
+		kdtree.radiusSearch(cp_search, max_revisit_pos_distance * max_revisit_pos_distance, pointIdx, pointSquaredDistance);
+        
+		for (int j = 0; j < pointIdx.size(); j++)
+		{
+			if ( (pointIdx[j]>i) && 
+			( !judge_adjacent_hdmap_index(HDmap_frames[i],HDmap_frames[pointIdx[j]],index_min_interval) ) )
+			{
+				Edge_between_2Frames revisit_edge;
+				revisit_edge.frame1 = HDmap_frames[i];
+				revisit_edge.frame2 = HDmap_frames[pointIdx[j]];
+				revisit_edge.type = REVISIT ; 
+
+				HDmap_revisit_edges.push_back(revisit_edge);
+			}
+		}
+	}
+}
+
+
+void Constraint_Finder::batch_find_hdmap_constraints(vector<Frame> &HDmap_frames, vector<Edge_between_2Frames> &HDmap_edges, int index_min_interval, float max_revisit_pos_distance)
+{
+    vector<Edge_between_2Frames> HDmap_revisit_edges;
+	vector<Edge_between_2Frames> HDmap_adjacent_edges;
+	
+	find_hdmap_adjacent_constraints(HDmap_frames,HDmap_adjacent_edges);
+	find_hdmap_revisit_constraints(HDmap_frames,HDmap_revisit_edges, index_min_interval, max_revisit_pos_distance);
+	
+	HDmap_edges.insert(HDmap_edges.end(),HDmap_adjacent_edges.begin(),HDmap_adjacent_edges.end());
+	HDmap_edges.insert(HDmap_edges.end(),HDmap_revisit_edges.begin(),HDmap_revisit_edges.end());
+	
+	//output
+	printf("The number of constraints : %d\n", HDmap_edges.size());
+	printf("The number of adjacent constraints : %d\n", HDmap_adjacent_edges.size());
+	printf("The number of revisit constraints : %d\n", HDmap_revisit_edges.size());
+
 }

@@ -44,8 +44,8 @@ INCLUDE_DIRECTORIES("usr/include/eigen3")
 INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/src)
 INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/include)
 
-ADD_EXECUTABLE(pose_optimize test/single_pcd.cpp)
-TARGET_LINK_LIBRARIES(pose_optimize ${PCL_LIBRARIES})
-#TARGET_LINK_LIBRARIES(pose_optimize ${G2O_LIBS})
+ADD_EXECUTABLE(pose_optimizer test/HD_map.cpp)
+TARGET_LINK_LIBRARIES(pose_optimizer ${PCL_LIBRARIES})
+#TARGET_LINK_LIBRARIES(pose_optimizer ${G2O_LIBS})
 
 

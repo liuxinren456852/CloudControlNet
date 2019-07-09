@@ -1,5 +1,5 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/pose_optimize.dir/test/single_pcd.cpp.o"
+  "CMakeFiles/pose_optimize.dir/test/HD_map.cpp.o"
   "../bin/pose_optimize.pdb"
   "../bin/pose_optimize"
 )

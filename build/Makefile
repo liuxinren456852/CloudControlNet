@@ -56,17 +56,6 @@ CMAKE_BINARY_DIR = /home/SENSETIME/panyue/pyfolder/codes/CloudControlNet/build
 #=============================================================================
 # Targets provided globally by CMake.
 
-# Special rule for the target rebuild_cache
-rebuild_cache:
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake to regenerate build system..."
-	/usr/bin/cmake -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
-.PHONY : rebuild_cache
-
-# Special rule for the target rebuild_cache
-rebuild_cache/fast: rebuild_cache
-
-.PHONY : rebuild_cache/fast
-
 # Special rule for the target edit_cache
 edit_cache:
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake cache editor..."
@@ -77,6 +66,17 @@ edit_cache:
 edit_cache/fast: edit_cache
 
 .PHONY : edit_cache/fast
+
+# Special rule for the target rebuild_cache
+rebuild_cache:
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake to regenerate build system..."
+	/usr/bin/cmake -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
+.PHONY : rebuild_cache
+
+# Special rule for the target rebuild_cache
+rebuild_cache/fast: rebuild_cache
+
+.PHONY : rebuild_cache/fast
 
 # The main all target
 all: cmake_check_build_system
@@ -111,44 +111,44 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named pose_optimize
+# Target rules for targets named pose_optimizer
 
 # Build rule for target.
-pose_optimize: cmake_check_build_system
-	$(MAKE) -f CMakeFiles/Makefile2 pose_optimize
-.PHONY : pose_optimize
+pose_optimizer: cmake_check_build_system
+	$(MAKE) -f CMakeFiles/Makefile2 pose_optimizer
+.PHONY : pose_optimizer
 
 # fast build rule for target.
-pose_optimize/fast:
-	$(MAKE) -f CMakeFiles/pose_optimize.dir/build.make CMakeFiles/pose_optimize.dir/build
-.PHONY : pose_optimize/fast
+pose_optimizer/fast:
+	$(MAKE) -f CMakeFiles/pose_optimizer.dir/build.make CMakeFiles/pose_optimizer.dir/build
+.PHONY : pose_optimizer/fast
 
-test/single_pcd.o: test/single_pcd.cpp.o
+test/HD_map.o: test/HD_map.cpp.o
 
-.PHONY : test/single_pcd.o
+.PHONY : test/HD_map.o
 
 # target to build an object file
-test/single_pcd.cpp.o:
-	$(MAKE) -f CMakeFiles/pose_optimize.dir/build.make CMakeFiles/pose_optimize.dir/test/single_pcd.cpp.o
-.PHONY : test/single_pcd.cpp.o
+test/HD_map.cpp.o:
+	$(MAKE) -f CMakeFiles/pose_optimizer.dir/build.make CMakeFiles/pose_optimizer.dir/test/HD_map.cpp.o
+.PHONY : test/HD_map.cpp.o
 
-test/single_pcd.i: test/single_pcd.cpp.i
+test/HD_map.i: test/HD_map.cpp.i
 
-.PHONY : test/single_pcd.i
+.PHONY : test/HD_map.i
 
 # target to preprocess a source file
-test/single_pcd.cpp.i:
-	$(MAKE) -f CMakeFiles/pose_optimize.dir/build.make CMakeFiles/pose_optimize.dir/test/single_pcd.cpp.i
-.PHONY : test/single_pcd.cpp.i
+test/HD_map.cpp.i:
+	$(MAKE) -f CMakeFiles/pose_optimizer.dir/build.make CMakeFiles/pose_optimizer.dir/test/HD_map.cpp.i
+.PHONY : test/HD_map.cpp.i
 
-test/single_pcd.s: test/single_pcd.cpp.s
+test/HD_map.s: test/HD_map.cpp.s
 
-.PHONY : test/single_pcd.s
+.PHONY : test/HD_map.s
 
 # target to generate assembly for a file
-test/single_pcd.cpp.s:
-	$(MAKE) -f CMakeFiles/pose_optimize.dir/build.make CMakeFiles/pose_optimize.dir/test/single_pcd.cpp.s
-.PHONY : test/single_pcd.cpp.s
+test/HD_map.cpp.s:
+	$(MAKE) -f CMakeFiles/pose_optimizer.dir/build.make CMakeFiles/pose_optimizer.dir/test/HD_map.cpp.s
+.PHONY : test/HD_map.cpp.s
 
 # Help Target
 help:
@@ -156,12 +156,12 @@ help:
 	@echo "... all (the default if no target is provided)"
 	@echo "... clean"
 	@echo "... depend"
-	@echo "... rebuild_cache"
 	@echo "... edit_cache"
-	@echo "... pose_optimize"
-	@echo "... test/single_pcd.o"
-	@echo "... test/single_pcd.i"
-	@echo "... test/single_pcd.s"
+	@echo "... rebuild_cache"
+	@echo "... pose_optimizer"
+	@echo "... test/HD_map.o"
+	@echo "... test/HD_map.i"
+	@echo "... test/HD_map.s"
 .PHONY : help
 
 

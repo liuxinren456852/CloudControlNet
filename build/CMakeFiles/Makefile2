@@ -60,39 +60,39 @@ CMAKE_SOURCE_DIR = /home/SENSETIME/panyue/pyfolder/codes/CloudControlNet
 CMAKE_BINARY_DIR = /home/SENSETIME/panyue/pyfolder/codes/CloudControlNet/build
 
 #=============================================================================
-# Target rules for target CMakeFiles/pose_optimize.dir
+# Target rules for target CMakeFiles/pose_optimizer.dir
 
 # All Build rule for target.
-CMakeFiles/pose_optimize.dir/all:
-	$(MAKE) -f CMakeFiles/pose_optimize.dir/build.make CMakeFiles/pose_optimize.dir/depend
-	$(MAKE) -f CMakeFiles/pose_optimize.dir/build.make CMakeFiles/pose_optimize.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/SENSETIME/panyue/pyfolder/codes/CloudControlNet/build/CMakeFiles --progress-num=1,2 "Built target pose_optimize"
-.PHONY : CMakeFiles/pose_optimize.dir/all
+CMakeFiles/pose_optimizer.dir/all:
+	$(MAKE) -f CMakeFiles/pose_optimizer.dir/build.make CMakeFiles/pose_optimizer.dir/depend
+	$(MAKE) -f CMakeFiles/pose_optimizer.dir/build.make CMakeFiles/pose_optimizer.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/SENSETIME/panyue/pyfolder/codes/CloudControlNet/build/CMakeFiles --progress-num=1,2 "Built target pose_optimizer"
+.PHONY : CMakeFiles/pose_optimizer.dir/all
 
 # Include target in all.
-all: CMakeFiles/pose_optimize.dir/all
+all: CMakeFiles/pose_optimizer.dir/all
 
 .PHONY : all
 
 # Build rule for subdir invocation for target.
-CMakeFiles/pose_optimize.dir/rule: cmake_check_build_system
+CMakeFiles/pose_optimizer.dir/rule: cmake_check_build_system
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/SENSETIME/panyue/pyfolder/codes/CloudControlNet/build/CMakeFiles 2
-	$(MAKE) -f CMakeFiles/Makefile2 CMakeFiles/pose_optimize.dir/all
+	$(MAKE) -f CMakeFiles/Makefile2 CMakeFiles/pose_optimizer.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/SENSETIME/panyue/pyfolder/codes/CloudControlNet/build/CMakeFiles 0
-.PHONY : CMakeFiles/pose_optimize.dir/rule
+.PHONY : CMakeFiles/pose_optimizer.dir/rule
 
 # Convenience name for target.
-pose_optimize: CMakeFiles/pose_optimize.dir/rule
+pose_optimizer: CMakeFiles/pose_optimizer.dir/rule
 
-.PHONY : pose_optimize
-
-# clean rule for target.
-CMakeFiles/pose_optimize.dir/clean:
-	$(MAKE) -f CMakeFiles/pose_optimize.dir/build.make CMakeFiles/pose_optimize.dir/clean
-.PHONY : CMakeFiles/pose_optimize.dir/clean
+.PHONY : pose_optimizer
 
 # clean rule for target.
-clean: CMakeFiles/pose_optimize.dir/clean
+CMakeFiles/pose_optimizer.dir/clean:
+	$(MAKE) -f CMakeFiles/pose_optimizer.dir/build.make CMakeFiles/pose_optimizer.dir/clean
+.PHONY : CMakeFiles/pose_optimizer.dir/clean
+
+# clean rule for target.
+clean: CMakeFiles/pose_optimizer.dir/clean
 
 .PHONY : clean
 

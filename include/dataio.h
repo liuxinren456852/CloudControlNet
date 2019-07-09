@@ -66,6 +66,8 @@ public:
     
     // pose IO;
 	bool readposes(const string &fileName, std::vector<Eigen::Matrix4d> &poses);
+    
+	// Read active object bounding boxs for active object filtering
 
 	// Batch read filename from folder
 	bool batchReadFileNamesInFolders(const std::string &folderName, const std::string & extension, std::vector<std::string> &fileNames);
@@ -118,7 +120,7 @@ public:
 	//Display of boxes
 	void display2Dboxes(const vector<CloudBlock> &blocks);
 	void display2Dcons(const vector<Constraint> &cons);
-
+    void display_hdmap_edges(const vector<Edge_between_2Frames> &cons);
 	
  
 

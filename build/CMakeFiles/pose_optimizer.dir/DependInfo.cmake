@@ -4,7 +4,7 @@ set(CMAKE_DEPENDS_LANGUAGES
   )
 # The set of files for implicit dependencies of each language:
 set(CMAKE_DEPENDS_CHECK_CXX
-  "/home/SENSETIME/panyue/pyfolder/codes/CloudControlNet/test/HD_map.cpp" "/home/SENSETIME/panyue/pyfolder/codes/CloudControlNet/build/CMakeFiles/pose_optimize.dir/test/HD_map.cpp.o"
+  "/home/SENSETIME/panyue/pyfolder/codes/CloudControlNet/test/HD_map.cpp" "/home/SENSETIME/panyue/pyfolder/codes/CloudControlNet/build/CMakeFiles/pose_optimizer.dir/test/HD_map.cpp.o"
   )
 set(CMAKE_CXX_COMPILER_ID "GNU")
 

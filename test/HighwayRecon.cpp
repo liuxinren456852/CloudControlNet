@@ -83,7 +83,7 @@ int main(/*int argc, char** argv*/)
 	//Pre-construct the global pose graph
 	Constraint_Finder cf;
 	vector<Constraint> All_cons, ALS_inner_strip_cons_all, MLS_adjacent_cons, BPLS_adjacent_cons, registration_cons;
-	cf.batch_find_multisource_constranits(ALS_strip_blocks, TLS_blocks, MLS_blocks, BPLS_blocks, All_blocks, ALS_inner_strip_cons_all, MLS_adjacent_cons, BPLS_adjacent_cons, registration_cons, All_cons, project_parameters.Overlap_Registration_KNN, project_parameters.Overlap_Registration_OverlapRatio);
+	cf.batch_find_multisource_constraints(ALS_strip_blocks, TLS_blocks, MLS_blocks, BPLS_blocks, All_blocks, ALS_inner_strip_cons_all, MLS_adjacent_cons, BPLS_adjacent_cons, registration_cons, All_cons, project_parameters.Overlap_Registration_KNN, project_parameters.Overlap_Registration_OverlapRatio);
 	t1 = clock();
 	LOG(INFO) << "Pose graph pre-construction done in "<< float(t1 - t0) / CLOCKS_PER_SEC << " s.";
 	

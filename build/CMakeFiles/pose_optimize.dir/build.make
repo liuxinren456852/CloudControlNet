@@ -57,38 +57,38 @@ include CMakeFiles/pose_optimize.dir/progress.make
 # Include the compile flags for this target's objects.
 include CMakeFiles/pose_optimize.dir/flags.make
 
-CMakeFiles/pose_optimize.dir/test/single_pcd.cpp.o: CMakeFiles/pose_optimize.dir/flags.make
-CMakeFiles/pose_optimize.dir/test/single_pcd.cpp.o: ../test/single_pcd.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/SENSETIME/panyue/pyfolder/codes/CloudControlNet/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/pose_optimize.dir/test/single_pcd.cpp.o"
-	/usr/bin/c++   $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/pose_optimize.dir/test/single_pcd.cpp.o -c /home/SENSETIME/panyue/pyfolder/codes/CloudControlNet/test/single_pcd.cpp
+CMakeFiles/pose_optimize.dir/test/HD_map.cpp.o: CMakeFiles/pose_optimize.dir/flags.make
+CMakeFiles/pose_optimize.dir/test/HD_map.cpp.o: ../test/HD_map.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/SENSETIME/panyue/pyfolder/codes/CloudControlNet/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/pose_optimize.dir/test/HD_map.cpp.o"
+	/usr/bin/c++   $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/pose_optimize.dir/test/HD_map.cpp.o -c /home/SENSETIME/panyue/pyfolder/codes/CloudControlNet/test/HD_map.cpp
 
-CMakeFiles/pose_optimize.dir/test/single_pcd.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/pose_optimize.dir/test/single_pcd.cpp.i"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/SENSETIME/panyue/pyfolder/codes/CloudControlNet/test/single_pcd.cpp > CMakeFiles/pose_optimize.dir/test/single_pcd.cpp.i
+CMakeFiles/pose_optimize.dir/test/HD_map.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/pose_optimize.dir/test/HD_map.cpp.i"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/SENSETIME/panyue/pyfolder/codes/CloudControlNet/test/HD_map.cpp > CMakeFiles/pose_optimize.dir/test/HD_map.cpp.i
 
-CMakeFiles/pose_optimize.dir/test/single_pcd.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/pose_optimize.dir/test/single_pcd.cpp.s"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/SENSETIME/panyue/pyfolder/codes/CloudControlNet/test/single_pcd.cpp -o CMakeFiles/pose_optimize.dir/test/single_pcd.cpp.s
+CMakeFiles/pose_optimize.dir/test/HD_map.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/pose_optimize.dir/test/HD_map.cpp.s"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/SENSETIME/panyue/pyfolder/codes/CloudControlNet/test/HD_map.cpp -o CMakeFiles/pose_optimize.dir/test/HD_map.cpp.s
 
-CMakeFiles/pose_optimize.dir/test/single_pcd.cpp.o.requires:
+CMakeFiles/pose_optimize.dir/test/HD_map.cpp.o.requires:
 
-.PHONY : CMakeFiles/pose_optimize.dir/test/single_pcd.cpp.o.requires
+.PHONY : CMakeFiles/pose_optimize.dir/test/HD_map.cpp.o.requires
 
-CMakeFiles/pose_optimize.dir/test/single_pcd.cpp.o.provides: CMakeFiles/pose_optimize.dir/test/single_pcd.cpp.o.requires
-	$(MAKE) -f CMakeFiles/pose_optimize.dir/build.make CMakeFiles/pose_optimize.dir/test/single_pcd.cpp.o.provides.build
-.PHONY : CMakeFiles/pose_optimize.dir/test/single_pcd.cpp.o.provides
+CMakeFiles/pose_optimize.dir/test/HD_map.cpp.o.provides: CMakeFiles/pose_optimize.dir/test/HD_map.cpp.o.requires
+	$(MAKE) -f CMakeFiles/pose_optimize.dir/build.make CMakeFiles/pose_optimize.dir/test/HD_map.cpp.o.provides.build
+.PHONY : CMakeFiles/pose_optimize.dir/test/HD_map.cpp.o.provides
 
-CMakeFiles/pose_optimize.dir/test/single_pcd.cpp.o.provides.build: CMakeFiles/pose_optimize.dir/test/single_pcd.cpp.o
+CMakeFiles/pose_optimize.dir/test/HD_map.cpp.o.provides.build: CMakeFiles/pose_optimize.dir/test/HD_map.cpp.o
 
 
 # Object files for target pose_optimize
 pose_optimize_OBJECTS = \
-"CMakeFiles/pose_optimize.dir/test/single_pcd.cpp.o"
+"CMakeFiles/pose_optimize.dir/test/HD_map.cpp.o"
 
 # External object files for target pose_optimize
 pose_optimize_EXTERNAL_OBJECTS =
 
-../bin/pose_optimize: CMakeFiles/pose_optimize.dir/test/single_pcd.cpp.o
+../bin/pose_optimize: CMakeFiles/pose_optimize.dir/test/HD_map.cpp.o
 ../bin/pose_optimize: CMakeFiles/pose_optimize.dir/build.make
 ../bin/pose_optimize: /usr/lib/x86_64-linux-gnu/libboost_system.so
 ../bin/pose_optimize: /usr/lib/x86_64-linux-gnu/libboost_filesystem.so
@@ -369,7 +369,7 @@ CMakeFiles/pose_optimize.dir/build: ../bin/pose_optimize
 
 .PHONY : CMakeFiles/pose_optimize.dir/build
 
-CMakeFiles/pose_optimize.dir/requires: CMakeFiles/pose_optimize.dir/test/single_pcd.cpp.o.requires
+CMakeFiles/pose_optimize.dir/requires: CMakeFiles/pose_optimize.dir/test/HD_map.cpp.o.requires
 
 .PHONY : CMakeFiles/pose_optimize.dir/requires
 

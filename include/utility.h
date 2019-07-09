@@ -82,27 +82,6 @@ namespace utility
 			min_x = min_y = min_z = max_x = max_y = max_z = 0.0;
 		}
 	};
-   
-
-    struct Frame
-	{
-        int unique_id;
-		int type;
-		int transaction_id;
-
-		string pcd_file_name;
-		Eigen::Matrix4d oxts_pose;
-        Eigen::Vector3d oxts_postion;
-		timeval time_stamp;
-    
-		Bounds boundingbox;
-		CenterPoint centerpoint;
-		Eigen::Matrix4d optimized_pose;
-        
-		Frame* lastframe;
-		pcl::PointCloud<pcl::PointXYZI>::Ptr pointcloud;
-
-	};
 
 	struct Grid
 	{

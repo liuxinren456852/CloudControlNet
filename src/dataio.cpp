@@ -51,11 +51,14 @@ bool DataIo<PointT>::HDmap_data_import (const string &pointcloud_fileList, const
 	for (int i=0;i<HD_map_datasize;i++)
 	{
 		HD_map_data[i].unique_id=i;
+		HD_map_data[i].transaction_id=0;
+		HD_map_data[i].type = HDL64;
+        HD_map_data[i].id_in_transaction=i;
 		HD_map_data[i].pcd_file_name=pointcloud_filenames[i];
 		HD_map_data[i].oxts_pose=poses[i];
-        HD_map_data[i].oxts_postion(0)=poses[i](0,3);
-		HD_map_data[i].oxts_postion(1)=poses[i](1,3);
-		HD_map_data[i].oxts_postion(2)=poses[i](2,3);
+        HD_map_data[i].oxts_position(0)=poses[i](0,3);
+		HD_map_data[i].oxts_position(1)=poses[i](1,3);
+		HD_map_data[i].oxts_position(2)=poses[i](2,3);
 
 	}
 	 printf("Save HDMap Data done, there are %d co-frames.\n",HD_map_datasize);
@@ -1816,6 +1819,127 @@ void DataIo<PointT>::display2Dcons(const vector<Constraint> &cons)
 		boost::this_thread::sleep(boost::posix_time::microseconds(100000));
 	}
 }
+
+template <typename PointT>
+void DataIo<PointT>::display_hdmap_edges(const vector<Edge_between_2Frames> &cons)
+{
+	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer(new pcl::visualization::PCLVisualizer("Graph Viewer"));
+	viewer->setBackgroundColor(0, 0, 0);
+	char t[256];
+	string s;
+	int n = 0;
+
+	float sphere_size, f_red, f_green, f_blue, line_width;
+
+	sphere_size = 3.0;
+	line_width = 0.5;
+
+	for (int i = 0; i < cons.size(); i++)
+	{
+		// switch (cons[i].block1.data_type)
+		// {
+		// case 1: //ALS
+		// 	f_red = 1.0;
+		// 	f_green = 0.0;
+		// 	f_blue = 0.0;
+		// 	break;
+		// case 2: //TLS
+		// 	f_red = 0.0;
+		// 	f_green = 1.0;
+		// 	f_blue = 0.0;
+		// 	break;
+		// case 3: //MLS
+		// 	f_red = 0.0;
+		// 	f_green = 0.0;
+		// 	f_blue = 1.0;
+		// 	break;
+		// case 4: //BPLS
+		// 	f_red = 1.0;
+		// 	f_green = 1.0;
+		// 	f_blue = 0.0;
+		// 	break;
+		// default:
+		// 	break;
+		// }
+        
+		f_red = 1.0;
+		f_green = 0.0;
+		f_blue = 0.0;
+      
+		pcl::PointXYZ ptc1;
+		ptc1.x = cons[i].frame1.oxts_position(0);
+		ptc1.y = cons[i].frame1.oxts_position(1);
+		ptc1.z = 0;
+		sprintf(t, "%d", n);
+		s = t;
+		viewer->addSphere(ptc1, sphere_size, f_red, f_green, f_blue, s);
+		n++;
+
+		// switch (cons[i].block2.data_type)
+		// {
+		// case 1: //ALS
+		// 	f_red = 1.0;
+		// 	f_green = 0.0;
+		// 	f_blue = 0.0;
+		// 	break;
+		// case 2: //TLS
+		// 	f_red = 0.0;
+		// 	f_green = 1.0;
+		// 	f_blue = 0.0;
+		// 	break;
+		// case 3: //MLS
+		// 	f_red = 0.0;
+		// 	f_green = 0.0;
+		// 	f_blue = 1.0;
+		// 	break;
+		// case 4: //BPLS
+		// 	f_red = 1.0;
+		// 	f_green = 1.0;
+		// 	f_blue = 0.0;
+		// 	break;
+		// default:
+		// 	break;
+		// }
+
+		pcl::PointXYZ ptc2;
+		ptc2.x = cons[i].frame2.oxts_position(0);
+		ptc2.y = cons[i].frame2.oxts_position(1);
+		ptc2.z = 0;
+		sprintf(t, "%d", n);
+		s = t;
+		viewer->addSphere(ptc2, sphere_size, f_red, f_green, f_blue, s);
+		n++;
+
+		switch (cons[i].type)
+		{
+		case ADJACENT: 
+			f_red = 0.0;
+			f_green = 1.0;
+			f_blue = 1.0;
+			break;
+		case REVISIT: 
+			f_red = 1.0;
+			f_green = 0.0;
+			f_blue = 1.0;
+			break;
+		default:
+			break;
+		}
+		sprintf(t, "%d", n);
+		s = t;
+		viewer->addLine(ptc1, ptc2, f_red, f_green, f_blue, s);
+		viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_LINE_WIDTH, line_width, s);
+		n++;
+	}
+
+	cout << "Click X(close) to continue..." << endl;
+	while (!viewer->wasStopped())
+	{
+		viewer->spinOnce(100);
+		boost::this_thread::sleep(boost::posix_time::microseconds(100000));
+	}
+}
+
 
 template <typename PointT>
 bool DataIo<PointT>::lasfileGK2UTM(const string &fileName)

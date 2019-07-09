@@ -1,7 +1,8 @@
 #include "dataio.cpp"
 #include "common_reg.cpp"
 #include "cloudprocessing.cpp"
-#include "find_constraint.h"
+#include "find_constraint.cpp"
+#include "utility.h"
 #include "parameters.h"
 #include "graph_optimizer.h"
 
@@ -31,19 +32,18 @@ int main(int argc,char** argv)
 	//Timing
 	clock_t t0, t1, t2, t3, t4, t5, t6;
 
-	//Preprocessing
-	//Unify the coordinate system 
-	//geo.BLH2XYZ_WGS84() //...
-	//Divide the point cloud into blocks by time sequence
-	//io.ALS_block_by_time() //...
-	
-
 	//Read the point clouds' filename bounding box data 
 	t0 = clock();
 	DataIo <PointT> io;
-    vector<Frame> HDmap_data;
-    io.HDmap_data_import(pcd_filelist,pose_file,HDmap_data);
+    vector<Frame> HDmap_frames;
+    io.HDmap_data_import(pcd_filelist,pose_file,HDmap_frames);
     
+    Constraint_Finder cf;
+    vector<Edge_between_2Frames> HDmap_edges;
+    cf.batch_find_hdmap_constraints(HDmap_frames, HDmap_edges, 50, 25.0);  // interval frame , max_distance
 	
+    cout << "Ready to display ..." << endl;
+	io.display_hdmap_edges(HDmap_edges);
+
     return 1;
 }
