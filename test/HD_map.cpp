@@ -40,8 +40,11 @@ int main(int argc,char** argv)
     
     Constraint_Finder cf;
     vector<Edge_between_2Frames> HDmap_edges;
-    cf.batch_find_hdmap_constraints(HDmap_frames, HDmap_edges, 50, 25.0);  // interval frame , max_distance
+    cf.batch_find_hdmap_constraints(HDmap_frames, HDmap_edges, 2000, 10.0);  // interval frame , max_distance
 	
+    //maybe abs_ 's problem
+    //figure out it later
+
     cout << "Ready to display ..." << endl;
 	io.display_hdmap_edges(HDmap_edges);
 

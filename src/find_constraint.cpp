@@ -7,7 +7,6 @@
 
 #define max_(a,b) (((a) > (b)) ? (a) : (b))
 #define min_(a,b) (((a) < (b)) ? (a) : (b))
-#define abs_(a) (((a) < (0)) ? (-a) : (a))
 
 
 void Constraint_Finder::find_adjacent_constraint_in_strip(vector<CloudBlock> &blocks_strip, vector<Constraint> &innerstrip_cons)
@@ -100,9 +99,9 @@ bool Constraint_Finder::judge_adjacent_hdmap_index(Frame & frame1, Frame & frame
 {
 	bool is_adjacent = false;
 	
-	if (frame1.type == frame2.type && frame1.transaction_id ==  frame2.transaction_id)
+	if (frame1.type == frame2.type && frame1.transaction_id == frame2.transaction_id)
 	{
-		if (abs_(frame1.id_in_transaction - frame2.id_in_transaction) <= index_min_interval)
+		if (abs(frame1.id_in_transaction - frame2.id_in_transaction) <= index_min_interval)
 		{
 			is_adjacent=true;
 		}
@@ -118,7 +117,7 @@ bool Constraint_Finder::judge_adjacent_hdmap_time(Frame & frame1, Frame & frame2
 
 	if (frame1.type == frame2.type && frame1.transaction_id ==  frame2.transaction_id)
 	{
-		double deltatime_in_us=abs_( (frame1.time_stamp.tv_sec * 1000000 + frame1.time_stamp.tv_usec) -
+		double deltatime_in_us=abs( (frame1.time_stamp.tv_sec * 1000000 + frame1.time_stamp.tv_usec) -
 			(frame2.time_stamp.tv_sec * 1000000 + frame2.time_stamp.tv_usec) );
 		
 		if (deltatime_in_us <= min_deltatime_in_us)
@@ -212,12 +211,12 @@ void Constraint_Finder::find_hdmap_revisit_constraints(vector<Frame> &HDmap_fram
 		cp_search.x = HDmap_frames[i].oxts_position(0);
 		cp_search.y = HDmap_frames[i].oxts_position(1);
 
-		kdtree.radiusSearch(cp_search, max_revisit_pos_distance * max_revisit_pos_distance, pointIdx, pointSquaredDistance);
-        
-		for (int j = 0; j < pointIdx.size(); j++)
-		{
-			if ( (pointIdx[j]>i) && 
-			( !judge_adjacent_hdmap_index(HDmap_frames[i],HDmap_frames[pointIdx[j]],index_min_interval) ) )
+		if(kdtree.radiusSearch(cp_search, max_revisit_pos_distance, pointIdx, pointSquaredDistance)>0)
+        {
+		  for (int j = 0; j < pointIdx.size(); j++)
+		  {
+			bool isadjacent = judge_adjacent_hdmap_index(HDmap_frames[i],HDmap_frames[pointIdx[j]],index_min_interval);
+			if ( isadjacent && pointIdx[j]>i )
 			{
 				Edge_between_2Frames revisit_edge;
 				revisit_edge.frame1 = HDmap_frames[i];
@@ -225,7 +224,9 @@ void Constraint_Finder::find_hdmap_revisit_constraints(vector<Frame> &HDmap_fram
 				revisit_edge.type = REVISIT ; 
 
 				HDmap_revisit_edges.push_back(revisit_edge);
+				
 			}
+		  }
 		}
 	}
 }
