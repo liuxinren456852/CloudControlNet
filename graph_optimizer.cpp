@@ -8,11 +8,6 @@ using namespace utility;
 void GlobalOptimize::optimizePoseGraph(vector<CloudBlock> &all_blocks, vector<Constraint> &all_cons)
 {
 
-	//1.优化器实例化;确定优化方法 such as L-M;
-	//2.赋点;赋初值;Fixed Value(基准）[TLS];
-	//3.赋边;观测值[配准结果或邻接单位阵];赋边权(信息矩阵;定义鲁棒核函数 such as Huber;
-	//4.优化求解;
-
 	LOG(INFO) << "Start to optimize the graph.";
 
 	//set up optimizer
@@ -33,9 +28,9 @@ void GlobalOptimize::optimizePoseGraph(vector<CloudBlock> &all_blocks, vector<Co
 	{
 		g2o::VertexSE3Expmap* pose_v = new g2o::VertexSE3Expmap();
 		pose_v->setId(i);
-		if (all_blocks[i].data_type == 2)  pose_v->setFixed(true);   //TLS站位姿变化固定;
-		pose_v->setEstimate(g2o::SE3Quat()); //预设值为单位Pose,认为一开始没有位姿变换;
-		optimizer.addVertex(pose_v);         //添加结点;
+		if (all_blocks[i].data_type == 2)  pose_v->setFixed(true);   
+		pose_v->setEstimate(g2o::SE3Quat()); 
+		optimizer.addVertex(pose_v);       
 		//pose_vertices.push_back(pose_v); 
 	}
 
@@ -81,7 +76,7 @@ void GlobalOptimize::optimizePoseGraph(vector<CloudBlock> &all_blocks, vector<Co
 		LOG(INFO) << all_blocks[i].optimized_pose;
 	}
 
-	//To guarentee the robustness, chi2 (卡方） 检验
+	//To guarentee the robustness, chi2 (锟斤拷锟斤拷锟斤拷 锟斤拷锟斤拷
 	/*for (int i = 0; i < iterations.size(); ++i)
 	{
 	double last_active_chi2 = 0.0, epsilon = 0.000001;
@@ -129,7 +124,7 @@ void GlobalOptimize::optimizePoseGraph(vector<CloudBlock> &all_blocks, vector<Co
 
 float GlobalOptimize::determineWeight(int node0_type, int node1_type, int edge_type)
 {
-	float weight_result = 1.0; //先设单位权吧;
+	float weight_result = 1.0; 
 	if (node0_type == 1 && node1_type == 1 && edge_type == 2) weight_result = 0.1; //ALS+ALS registration
 	if ((node0_type == 1 && node1_type == 3) || (node0_type == 3 && node1_type == 1)) weight_result = 0.5; //ALS+MLS registration
 	

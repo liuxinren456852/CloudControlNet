@@ -411,8 +411,8 @@ void CRegistration<PointT>::Coarsereg_FPFHSAC(const typename pcl::PointCloud<Poi
 	sac_ia.setSourceFeatures(source_fpfh);
 	sac_ia.setInputTarget(TargetCloud);
 	sac_ia.setTargetFeatures(target_fpfh);
-	//sac_ia.setNumberOfSamples(20);       //ÉèÖÃÃ¿´Îµü´ú¼ÆËãÖÐÊ¹ÓÃµÄÑù±¾ÊýÁ¿£¨¿ÉÊ¡£©,¿É½ÚÊ¡Ê±¼ä
-	sac_ia.setCorrespondenceRandomness(15); //ÉèÖÃ¼ÆËãÐ­·½²îÊ±Ñ¡Ôñ¶àÉÙ½üÁÚµã£¬¸ÃÖµÔ½´ó£¬Ð­·À²îÔ½¾«È·£¬µ«ÊÇ¼ÆËãÐ§ÂÊÔ½µÍ.(¿ÉÊ¡)
+	//sac_ia.setNumberOfSamples(20);       //ï¿½ï¿½ï¿½ï¿½Ã¿ï¿½Îµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¹ï¿½Ãµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¡ï¿½ï¿½,ï¿½É½ï¿½Ê¡Ê±ï¿½ï¿½
+	sac_ia.setCorrespondenceRandomness(15); //ï¿½ï¿½ï¿½Ã¼ï¿½ï¿½ï¿½Ð­ï¿½ï¿½ï¿½ï¿½Ê±Ñ¡ï¿½ï¿½ï¿½ï¿½Ù½ï¿½ï¿½Úµã£¬ï¿½ï¿½ÖµÔ½ï¿½ï¿½Ð­ï¿½ï¿½ï¿½ï¿½Ô½ï¿½ï¿½È·ï¿½ï¿½ï¿½ï¿½ï¿½Ç¼ï¿½ï¿½ï¿½Ð§ï¿½ï¿½Ô½ï¿½ï¿½.(ï¿½ï¿½Ê¡)
 	sac_ia.align(*TransformedSource);
 	transformationS2T = sac_ia.getFinalTransformation();
 	
@@ -502,8 +502,8 @@ bool CRegistration<PointT>::CSTRAN_4DOF(const std::vector <std::vector<double>> 
 	transpara[3] = b / s; //sin (ang)
 	transpara[4] = a / s; //cos (ang)
 	
-	cout.setf(ios::showpoint);  //½«Ð¡Êý¾«¶ÈºóÃæµÄ0ÏÔÊ¾³öÀ´;
-	cout.precision(12);         //ÉèÖÃÊä³ö¾«¶È£¬±£ÁôÓÐÐ§Êý×Ö;
+	cout.setf(ios::showpoint);  //ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½ï¿½Èºï¿½ï¿½ï¿½ï¿½0ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½;
+	cout.precision(12);         //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§ï¿½ï¿½ï¿½ï¿½;
 
 	cout<< "Estimated Transformation From A to B" << endl
 		<< "tx: " << tx << " m" << endl
@@ -598,8 +598,8 @@ bool CRegistration<PointT>::CSTRAN_7DOF(const std::vector <std::vector<double>> 
 
 	transpara[0] = transAB(0);transpara[1] = transAB(1);transpara[2] = transAB(2);transpara[3] = transAB(3); transpara[4] = transAB(4); transpara[5] = transAB(5);transpara[6] = transAB(6);
 
-	cout.setf(ios::showpoint);  //½«Ð¡Êý¾«¶ÈºóÃæµÄ0ÏÔÊ¾³öÀ´;
-	cout.precision(10);         //ÉèÖÃÊä³ö¾«¶È£¬±£ÁôÓÐÐ§Êý×Ö;
+	cout.setf(ios::showpoint);  //ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½ï¿½Èºï¿½ï¿½ï¿½ï¿½0ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½;
+	cout.precision(10);         //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§ï¿½ï¿½ï¿½ï¿½;
 
 	cout << "Estimated Transformation From A to B" << endl
 		<< "tx: " << transpara[0] << " m" << endl
@@ -730,8 +730,8 @@ bool CRegistration<PointT>::LLS_4DOF(const std::vector <std::vector<double>> & c
 	tz = transAB(3, 0);
 
 
-	cout.setf(ios::showpoint);  //½«Ð¡Êý¾«¶ÈºóÃæµÄ0ÏÔÊ¾³öÀ´
-	cout.precision(12);         //ÉèÖÃÊä³ö¾«¶È£¬±£ÁôÓÐÐ§Êý×Ö
+	cout.setf(ios::showpoint);  //ï¿½ï¿½Ð¡ï¿½ï¿½ï¿½ï¿½ï¿½Èºï¿½ï¿½ï¿½ï¿½0ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½
+	cout.precision(12);         //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð§ï¿½ï¿½ï¿½ï¿½
 
 
 	cout << "Calculated by Linear Least Square"<<endl

@@ -63,7 +63,7 @@ void Constraint_Finder::find_overlap_registration_constraint(vector<CloudBlock> 
         
 		for (int j = 0; j < pointIdx.size(); j++)
 		{
-			//Ð§ÂÊ¿ÉÌáÉý;
+			//Ð§ï¿½Ê¿ï¿½ï¿½ï¿½ï¿½ï¿½;
 			double iou = calculate_iou(blocks[i].bound, blocks[pointIdx[j]].bound);
 			bool is_adjacent = judge_adjacent(blocks[i],blocks[pointIdx[j]]);
 
