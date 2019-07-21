@@ -6,8 +6,7 @@
 
 #include "dataio.h"
 #include "utility.h"
-#include "GeoTran.h"
-#include "voxelFilter.h"
+#include "geotran.h"
 #include "common_reg.h"
 
 #include <pcl/visualization/common/common.h>
@@ -26,11 +25,13 @@ using namespace  utility;
 using namespace  boost::filesystem;
 
 template <typename PointT>
-bool DataIo<PointT>::HDmap_data_import (const string &pointcloud_fileList, const string &pose_fileName, std::vector<Frame> &HD_map_data)
+bool DataIo<PointT>::HDmap_data_import (const string &pointcloud_folder, const string &pointcloud_fileList,
+ const string &pose_fileName, const string &imu_fileName, int begin_frame, int end_frame, Transaction & transaction_data)
 {
     //Import pointcloud filenames
 	vector<string> pointcloud_filenames;
 	ifstream lidar_file_list(pointcloud_fileList.c_str());
+	
 	while (lidar_file_list.peek()!=EOF)
     {   
 		string curfile;
@@ -41,33 +42,54 @@ bool DataIo<PointT>::HDmap_data_import (const string &pointcloud_fileList, const
 
 	//Import poses
     //Pose should be complete (corresponding to point cloud files)
-	vector<Eigen::Matrix4d> poses;
+	vector<Eigen::Matrix4f> poses;
     readposes(pose_fileName,poses);
     printf("Pose imported done, there are %d frames in [%s]\n",poses.size(),pose_fileName.c_str());
 
+	//Import imu datas
+    //IMU data should be complete (corresponding to point cloud files)
+	vector<vector<IMU_data> > imu_datas;
+    readimudata(imu_fileName, imu_datas);
+    printf("IMU data imported done, there are %d frames in [%s]\n",imu_datas.size(),imu_fileName.c_str());
+    
 	//Save data
-	int HD_map_datasize=min_(pointcloud_filenames.size(),poses.size());
-	HD_map_data.resize(HD_map_datasize);
-	for (int i=0;i<HD_map_datasize;i++)
-	{
-		HD_map_data[i].unique_id=i;
-		HD_map_data[i].transaction_id=0;
-		HD_map_data[i].type = HDL64;
-        HD_map_data[i].id_in_transaction=i;
-		HD_map_data[i].pcd_file_name=pointcloud_filenames[i];
-		HD_map_data[i].oxts_pose=poses[i];
-        HD_map_data[i].oxts_position(0)=poses[i](0,3);
-		HD_map_data[i].oxts_position(1)=poses[i](1,3);
-		HD_map_data[i].oxts_position(2)=poses[i](2,3);
+	int common_datasize = min_ ( min_ ( pointcloud_filenames.size() , poses.size() ) , imu_datas.size() );
+	int transaction_datasize = end_frame-begin_frame+1;  //Fix it for robustness later.
 
+	//transaction_data.frames.resize(transaction_datasize);
+    printf("Total frame number for calculation is %d \n",transaction_datasize);
+    
+	transaction_data.unique_id = 0;
+	transaction_data.type = HDL64;
+    transaction_data.frame_number = transaction_datasize;
+
+	transaction_data.frames.resize(transaction_datasize);
+	//vector<Frame> temp_frames;
+	//temp_frames.resize(transaction_datasize);
+
+	for (int i = 0;i < transaction_datasize; i++)
+	{	
+		transaction_data.frames[i].unique_id=i;
+		transaction_data.frames[i].transaction_id=transaction_data.unique_id;
+		transaction_data.frames[i].type = transaction_data.type;
+        transaction_data.frames[i].id_in_transaction=i;
+		transaction_data.frames[i].pcd_file_name=pointcloud_folder+ "/"+ pointcloud_filenames[i+begin_frame];
+		transaction_data.frames[i].oxts_pose=poses[i+begin_frame];
+		transaction_data.frames[i].oxts_position(0)=poses[i+begin_frame](0,3);
+		transaction_data.frames[i].oxts_position(1)=poses[i+begin_frame](1,3);
+		transaction_data.frames[i].oxts_position(2)=poses[i+begin_frame](2,3);
+		transaction_data.frames[i].imu_datas=imu_datas[i+begin_frame];
+        
 	}
-	 printf("Save HDMap Data done, there are %d co-frames.\n",HD_map_datasize);
+	//for (int i=0;i<transaction_datasize;i++) printf("Input Frame data: %d: (%lf, %lf, %lf) \n", i, transaction_data.frames[i]->oxts_position(0),transaction_data.frames[i]->oxts_position(1),transaction_data.frames[i]->oxts_position(2));
+
+	printf("Save HDMap's %d transaction data done, there are %d frames.\n",transaction_data.unique_id,transaction_datasize);
 
 }   
 
 
 template <typename PointT>
-bool DataIo<PointT>::readposes(const string &fileName, vector<Eigen::Matrix4d> &poses)
+bool DataIo<PointT>::readposes(const string &fileName, vector<Eigen::Matrix4f> &poses)
 {
    std::ifstream in(fileName.c_str(),ios::in);
 	if (!in)
@@ -75,7 +97,7 @@ bool DataIo<PointT>::readposes(const string &fileName, vector<Eigen::Matrix4d> &
 		return 0;
 	}
 	
-    Eigen::Matrix4d pose_;
+    Eigen::Matrix4f pose_;
     string file_;
     int i = 0;
 
@@ -105,8 +127,48 @@ bool DataIo<PointT>::readposes(const string &fileName, vector<Eigen::Matrix4d> &
 
 
 template <typename PointT>
+bool DataIo<PointT>::readimudata(const string &fileName, vector<vector<IMU_data> > &imu_datas)
+{
+   std::ifstream in(fileName.c_str(),ios::in);
+	if (!in)
+	{
+		return 0;
+	}
+	
+    IMU_data temp_imu_data;
+    string file_;
+    int i = 0;
+    int frequence=10;
+
+
+	while (!in.eof())
+	{
+		vector<IMU_data> temp_imu_data_sequence;
+		temp_imu_data_sequence.resize(frequence);
+
+		for (int j=0; j<frequence ;j++)
+		{
+           in >> file_;
+        
+		   in >> temp_imu_data.ax >>  temp_imu_data.ay >>  temp_imu_data.az >>  temp_imu_data.wx >>  temp_imu_data.wy >>  temp_imu_data.wz;
+           temp_imu_data_sequence[j]= temp_imu_data;
+		}
+        
+		imu_datas.push_back(temp_imu_data_sequence);
+        //cout<<i<<endl<<poses[i]<<endl;
+        ++i;   
+	}
+	in.close();
+	//cout << "Import finished ... ..." << endl;
+	return 1;
+}
+
+
+template <typename PointT>
 bool DataIo<PointT>::readCloudFile(const string &fileName, const typename pcl::PointCloud<PointT>::Ptr &pointCloud)
 {
+	clock_t t0, t1;
+	t0=clock();
 	string extension;
 	extension = fileName.substr(fileName.find_last_of('.') + 1);     //Get the suffix of the file;
 	
@@ -149,6 +211,9 @@ bool DataIo<PointT>::readCloudFile(const string &fileName, const typename pcl::P
 		cout << "Undefined Point Cloud Format." << endl;
 		return 0;
 	}
+	t1=clock();
+
+	//cout << "Point cloud data imported done in " << float(t1 - t0) / CLOCKS_PER_SEC << " s" << endl; 
 }
 
 template <typename PointT>
@@ -201,12 +266,16 @@ bool DataIo<PointT>::writeCloudFile(const string &fileName, const typename pcl::
 template <typename PointT> 
 bool DataIo<PointT>::readPcdFile(const std::string &fileName, const typename pcl::PointCloud<PointT>::Ptr &pointCloud)
 {
+	clock_t t0, t1;
+	t0=clock();
 	if (pcl::io::loadPCDFile<PointT>(fileName, *pointCloud) == -1) 
 	{
 		PCL_ERROR("Couldn't read file\n");
 		return false;
 	}
 	return true;
+	t1=clock();
+	cout << "Point cloud data imported done in " << float(t1 - t0) / CLOCKS_PER_SEC << " s" << endl; 
 }
 
 template <typename PointT>
@@ -407,7 +476,7 @@ bool DataIo<PointT>::readLasFile(const std::string &fileName, const typename pcl
 		
 		cin >> fileGlobalShift;
 		
-		ifstream in(fileGlobalShift, ios::in);
+		ifstream in(fileGlobalShift.c_str(), ios::in);
 		in >> global_shift[0];
 		in >> global_shift[1];
 		in >> global_shift[2];
@@ -709,7 +778,7 @@ void DataIo<PointT>::batchReadMultiSourceFileNamesInDataFolders(const std::strin
 template <typename PointT>
 bool DataIo<PointT>::readTxtFile(const string &fileName, const typename pcl::PointCloud<PointT>::Ptr &pointCloud)
 {
-	ifstream in(fileName, ios::in);
+	ifstream in(fileName.c_str(), ios::in);
 	if (!in)
 	{
 		return 0;
@@ -782,11 +851,49 @@ bool DataIo<PointT>::writeTxtFile(const string &fileName, const typename pcl::Po
 	return 1;
 }
 
+
 template <typename PointT>
-void DataIo<PointT>::display(const typename pcl::PointCloud<PointT>::Ptr &Cloud1, const typename pcl::PointCloud<PointT>::Ptr &Cloud2, string displayname)
+void DataIo<PointT>::display1cloud  (const typename pcl::PointCloud<PointT>::Ptr &Cloud, string displayname, int display_downsample_ratio)
+{
+    boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer(new pcl::visualization::PCLVisualizer(displayname));
+	viewer->setBackgroundColor(0, 0, 0);
+	char t[256];
+	string s;
+	int n = 0;
+
+	pcXYZRGBPtr pointcloud(new pcXYZRGB());
+
+	for (size_t i = 0; i < Cloud->points.size(); ++i)
+	{
+		if (i%display_downsample_ratio==0)
+		{
+           pcl::PointXYZRGB pt;
+		   pt.x = Cloud->points[i].x;
+		   pt.y = Cloud->points[i].y;
+		   pt.z = Cloud->points[i].z;
+		   pt.r = 255;
+		   pt.g = 215;
+		   pt.b = 0;
+		   pointcloud->points.push_back(pt);
+		}	
+	} // Golden
+
+	viewer->addPointCloud(pointcloud, "pointcloud_single");
+
+    cout << "Click X(close) to continue..." << endl;
+	while (!viewer->wasStopped())
+	{
+		viewer->spinOnce(100);
+		boost::this_thread::sleep(boost::posix_time::microseconds(100000));
+	}
+}
+
+
+template <typename PointT>
+void DataIo<PointT>::display2clouds (const typename pcl::PointCloud<PointT>::Ptr &Cloud1, const typename pcl::PointCloud<PointT>::Ptr &Cloud2, string displayname, int display_downsample_ratio)
 {
 	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer(new pcl::visualization::PCLVisualizer(displayname));
-	viewer->setBackgroundColor(255, 255, 255);
+	viewer->setBackgroundColor(0, 0, 0);
 	char t[256];
 	string s;
 	int n = 0;
@@ -796,28 +903,34 @@ void DataIo<PointT>::display(const typename pcl::PointCloud<PointT>::Ptr &Cloud1
 
 	for (size_t i = 0; i < Cloud1->points.size(); ++i)
 	{
-		pcl::PointXYZRGB pt;
-		pt.x = Cloud1->points[i].x;
-		pt.y = Cloud1->points[i].y;
-		pt.z = Cloud1->points[i].z;
-		pt.r = 255;
-		pt.g = 215;
-		pt.b = 0;
-		pointcloud1->points.push_back(pt);
+		if (i%display_downsample_ratio==0)
+		{
+		   pcl::PointXYZRGB pt;
+		   pt.x = Cloud1->points[i].x;
+		   pt.y = Cloud1->points[i].y;
+		   pt.z = Cloud1->points[i].z;
+		   pt.r = 255;
+		   pt.g = 215;
+		   pt.b = 0;
+		   pointcloud1->points.push_back(pt);
+		}
 	} // Golden
 
 	viewer->addPointCloud(pointcloud1, "pointcloudT");
 
 	for (size_t i = 0; i < Cloud2->points.size(); ++i)
 	{
-		pcl::PointXYZRGB pt;
-		pt.x = Cloud2->points[i].x;
-		pt.y = Cloud2->points[i].y;
-		pt.z = Cloud2->points[i].z;
-		pt.r = 233;
-		pt.g = 233;
-		pt.b = 216;
-		pointcloud2->points.push_back(pt);
+		if (i%display_downsample_ratio==0)
+		{
+		  pcl::PointXYZRGB pt;
+		  pt.x = Cloud2->points[i].x;
+		  pt.y = Cloud2->points[i].y;
+		  pt.z = Cloud2->points[i].z;
+		  pt.r = 233;
+		  pt.g = 233;
+		  pt.b = 216;
+		  pointcloud2->points.push_back(pt);
+		}
 	} // Silver
 
 	viewer->addPointCloud(pointcloud2, "pointcloudS");
@@ -831,7 +944,488 @@ void DataIo<PointT>::display(const typename pcl::PointCloud<PointT>::Ptr &Cloud1
 }
 
 template <typename PointT>
-void DataIo<PointT>::displaymulti(const typename pcl::PointCloud<PointT>::Ptr &Cloud0, const typename pcl::PointCloud<PointT>::Ptr &Cloud1, const typename pcl::PointCloud<PointT>::Ptr &Cloud2, string displayname)
+void DataIo<PointT>::display3clouds (const typename pcl::PointCloud<PointT>::Ptr &Cloud1, const typename pcl::PointCloud<PointT>::Ptr &Cloud2,  const typename pcl::PointCloud<PointT>::Ptr &Cloud3 ,string displayname, int display_downsample_ratio)
+{
+	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer(new pcl::visualization::PCLVisualizer(displayname));
+	viewer->setBackgroundColor(0, 0, 0);
+	char t[256];
+	string s;
+	int n = 0;
+
+	pcXYZRGBPtr pointcloud1(new pcXYZRGB());
+	pcXYZRGBPtr pointcloud2(new pcXYZRGB());
+	pcXYZRGBPtr pointcloud3(new pcXYZRGB());
+
+	for (size_t i = 0; i < Cloud1->points.size(); ++i)
+	{
+		if (i%display_downsample_ratio==0)
+		{
+		   pcl::PointXYZRGB pt;
+		   pt.x = Cloud1->points[i].x;
+		   pt.y = Cloud1->points[i].y;
+		   pt.z = Cloud1->points[i].z;
+		   pt.r = 255;
+		   pt.g = 0;
+		   pt.b = 0;
+		   pointcloud1->points.push_back(pt);
+		}
+	} // Red
+
+	viewer->addPointCloud(pointcloud1, "pointcloud1");
+
+	for (size_t i = 0; i < Cloud2->points.size(); ++i)
+	{
+		if (i%display_downsample_ratio==0)
+		{
+		  pcl::PointXYZRGB pt;
+		  pt.x = Cloud2->points[i].x;
+		  pt.y = Cloud2->points[i].y;
+		  pt.z = Cloud2->points[i].z;
+		  pt.r = 0;
+		  pt.g = 255;
+		  pt.b = 0;
+		  pointcloud2->points.push_back(pt);
+		}
+	} // Green
+
+	viewer->addPointCloud(pointcloud2, "pointcloud2");
+
+	for (size_t i = 0; i < Cloud3->points.size(); ++i)
+	{
+		if (i%display_downsample_ratio==0)
+		{
+		  pcl::PointXYZRGB pt;
+		  pt.x = Cloud3->points[i].x;
+		  pt.y = Cloud3->points[i].y;
+		  pt.z = Cloud3->points[i].z;
+		  pt.r = 0;
+		  pt.g = 0;
+		  pt.b = 255;
+		  pointcloud3->points.push_back(pt);
+		}
+	} // Blue
+
+	viewer->addPointCloud(pointcloud3, "pointcloud3");
+	
+	cout << "Click X(close) to continue..." << endl;
+	while (!viewer->wasStopped())
+	{
+		viewer->spinOnce(100);
+		boost::this_thread::sleep(boost::posix_time::microseconds(100000));
+	}
+}
+
+template <typename PointT>
+void DataIo<PointT>::display_submap (const SubMap & submap, string displayname, color_type color_mode, int display_downsample_ratio)
+{
+   
+    boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer(new pcl::visualization::PCLVisualizer(displayname));
+	viewer->setBackgroundColor(0, 0, 0);
+	char t[256];
+	string s;
+	int n=0;
+    
+    float sphere_size, line_width;
+
+	sphere_size = 0.15;
+	line_width = 0.4;
+    
+    float maxz,minz,maxz2,minz2,c_value, maxi, mini;
+    //Get bounding box data
+	maxz=submap.boundingbox.max_z;
+	minz=submap.boundingbox.min_z;
+    if ((maxz-minz) > 8) {maxz2=maxz-6; minz2=minz+2; } //Set Color Ramp
+	
+	mini=0;
+	maxi=255.0;
+
+    float frame_color_r,frame_color_g,frame_color_b;
+    
+	for (int j=0; j < submap.frame_number; j++)
+	{
+        pcXYZRGBPtr rgbcloud(new pcXYZRGB);
+        
+		//Get random color for the frame
+		frame_color_r = 255 * (rand() / (1.0 + RAND_MAX));
+		frame_color_g = 255 * (rand() / (1.0 + RAND_MAX));
+	    frame_color_b = 255 * (rand() / (1.0 + RAND_MAX));
+		
+	    for (size_t i = 0; i < submap.frames[j].pointcloud_odom_down->points.size(); ++i)
+	    {
+		  if (i%display_downsample_ratio==0) //Downsample for display
+		  {
+			pcl::PointXYZRGB pt;
+		    pt.x = submap.frames[j].pointcloud_odom_down->points[i].x;
+		    pt.y = submap.frames[j].pointcloud_odom_down->points[i].y;
+		    pt.z = submap.frames[j].pointcloud_odom_down->points[i].z;
+		    
+			switch (color_mode)
+			{
+			case SINGLE:  //Single Color for all the points: Golden
+			{
+                pt.r = 255;
+		        pt.g = 215;
+	     	    pt.b = 0;
+				break;
+			}
+			case HEIGHT:  //Height ramp color scalar
+			{
+                c_value = min_( max_( pt.z-minz2 , 0 )/(maxz2-minz2) , 1);
+				pt.r = 255 * c_value;
+		        pt.g = 255 * (1.0 - c_value);
+	     	    pt.b = 50 + 150 * c_value;
+				break;
+			}		
+			case FRAME: //Random color for each frame
+			{
+				pt.r = frame_color_r;
+		        pt.g = frame_color_g;
+		        pt.b = frame_color_b;
+				break;
+			}
+			case INTENSITY: //Fix it later
+			{
+				//float color_intensity= 255.0 * (submap.frames[j].pointcloud_odom_down->points[i].intensity - mini)/(maxi-mini);
+			    pt.r = min_(1.25 *submap.frames[j].pointcloud_odom_down->points[i].intensity , 255);
+		        pt.g = pt.r;
+		        pt.b = pt.r;
+			    break;
+			}
+			default: //RED
+			{
+			    pt.r = 255;
+		        pt.g = 0;
+	     	    pt.b = 0;
+			    break;
+			}	
+			}		
+			
+			rgbcloud->points.push_back(pt);
+		  }
+		}
+		
+		sprintf(t, "%d", n);
+		s = t;
+		viewer->addPointCloud(rgbcloud, s);
+	    n++;
+        
+        pcl::PointXYZ ptc1;
+		ptc1.x = submap.frames[j].odom_pose(0,3);
+		ptc1.y = submap.frames[j].odom_pose(1,3);
+		ptc1.z = submap.frames[j].odom_pose(2,3);
+		sprintf(t, "%d", n);
+		s = t;
+		if (j==0) viewer->addSphere(ptc1, sphere_size, 0.0, 1.0, 0.0, s); //Lidar Odometry Start Point: Green
+		else viewer->addSphere(ptc1, sphere_size, 1.0, 0.0, 0.0, s); //Lidar Odometry Trajectory: Red
+		n++;
+
+		pcl::PointXYZ ptc2;
+		ptc2.x = submap.frames[j].oxts_pose(0,3);
+		ptc2.y = submap.frames[j].oxts_pose(1,3);
+		ptc2.z = submap.frames[j].oxts_pose(2,3);
+		sprintf(t, "%d", n);
+		s = t;
+		if (j==0) viewer->addSphere(ptc1, sphere_size, 0.0, 1.0, 0.0, s); //GNSS INS Start Point: Green
+		else viewer->addSphere(ptc2, sphere_size, 0.0, 0.0, 1.0, s); //GNSS INS Trajectory: Blue
+		n++;
+
+		pcl::PointXYZ ptc3;
+		ptc3.x = submap.frames[j].oxts_noise_pose(0,3);
+		ptc3.y = submap.frames[j].oxts_noise_pose(1,3);
+		ptc3.z = submap.frames[j].oxts_noise_pose(2,3);
+		sprintf(t, "%d", n);
+		s = t;
+		if (j==0) viewer->addSphere(ptc3, sphere_size, 0.0, 1.0, 0.0, s); //GNSS INS Start Point: Green
+		else viewer->addSphere(ptc3, sphere_size, 1.0, 1.0, 0.0, s);      //GNSS INS Trajectory: Yellow
+		n++;
+	} 
+
+    cout << "Click X(close) to continue..." << endl;
+	while (!viewer->wasStopped())
+	{
+		viewer->spinOnce(100);
+		boost::this_thread::sleep(boost::posix_time::microseconds(100000));
+	}
+}
+
+template <typename PointT>
+void DataIo<PointT>::display_trajectory (const Transaction &transaction, std::string displayname)
+{
+    boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer(new pcl::visualization::PCLVisualizer(displayname));
+	viewer->setBackgroundColor(0, 0, 0);
+	char t[256];
+	string s;
+	int n=0;
+    
+    float sphere_size, sphere_size2,line_width;
+    float f_red = 1.0, f_green =1.0, f_blue =1.0;
+	sphere_size = 0.15;
+	sphere_size2 = 0.1;
+	line_width = 0.2;
+	
+	for (int i=0; i < transaction.submap_number; i++)
+	{
+        for (int j=0; j< transaction.submaps[i].frame_number; j++)
+		{
+		   pcl::PointXYZ ptc1;
+		   ptc1.x = transaction.submaps[i].frames[j].odom_pose(0,3);
+		   ptc1.y = transaction.submaps[i].frames[j].odom_pose(1,3);
+		   ptc1.z = transaction.submaps[i].frames[j].odom_pose(2,3);
+		   sprintf(t, "%d", n);
+		   s = t;
+		   if (i==0 && j==0 ) viewer->addSphere(ptc1, sphere_size, 0.0, 1.0, 0.0, s); //Lidar Odometry Start Point: Green
+		   else viewer->addSphere(ptc1, sphere_size, 1.0, 0.0, 0.0, s); //Lidar Odometry Trajectory: Red
+		   n++;
+
+		   pcl::PointXYZ ptc2;
+		   ptc2.x = transaction.submaps[i].frames[j].oxts_pose(0,3);
+		   ptc2.y = transaction.submaps[i].frames[j].oxts_pose(1,3);
+		   ptc2.z = transaction.submaps[i].frames[j].oxts_pose(2,3);
+		   sprintf(t, "%d", n);
+		   s = t;
+		   if (i==0 && j==0 ) viewer->addSphere(ptc2, sphere_size, 0.0, 1.0, 0.0, s); //Ground Truth Start Point: Green
+		   else viewer->addSphere(ptc2, sphere_size, 0.0, 0.0, 1.0, s); //Ground Truth Trajectory: Blue
+		   n++;
+           
+		   pcl::PointXYZ ptc3;
+		   ptc3.x = transaction.submaps[i].frames[j].oxts_noise_pose(0,3);
+		   ptc3.y = transaction.submaps[i].frames[j].oxts_noise_pose(1,3);
+		   ptc3.z = transaction.submaps[i].frames[j].oxts_noise_pose(2,3);
+		   sprintf(t, "%d", n);
+		   s = t;
+		   if (i==0 && j==0 ) viewer->addSphere(ptc3, sphere_size, 0.0, 1.0, 0.0, s); //GNSS INS Start Point: Green
+		   else viewer->addSphere(ptc3, sphere_size, 1.0, 1.0, 0.0, s); //GNSS INS Trajectory: Yellow
+		   n++;
+		}
+		pcl::PointXYZ pt1;
+		   pt1.x = transaction.submaps[i].boundingbox.min_x;
+		   pt1.y = transaction.submaps[i].boundingbox.min_y;
+		   pt1.z = transaction.submaps[i].boundingbox.min_z;
+		   sprintf(t, "%d", n);
+		   s = t;
+		   viewer->addSphere(pt1, sphere_size2, f_red, f_green, f_blue, s);
+		   n++;
+
+		   pcl::PointXYZ pt2;
+		   pt2.x = transaction.submaps[i].boundingbox.min_x;
+		   pt2.y = transaction.submaps[i].boundingbox.max_y;
+		   pt2.z = transaction.submaps[i].boundingbox.min_z;
+		   sprintf(t, "%d", n);
+		   s = t;
+		   viewer->addSphere(pt2, sphere_size2, f_red, f_green, f_blue, s);
+		   n++;
+
+		   pcl::PointXYZ pt3;
+		   pt3.x = transaction.submaps[i].boundingbox.max_x;
+		   pt3.y = transaction.submaps[i].boundingbox.max_y;
+		   pt3.z = transaction.submaps[i].boundingbox.min_z;
+		   sprintf(t, "%d", n);
+		   s = t;
+		   viewer->addSphere(pt3, sphere_size2, f_red, f_green, f_blue, s);
+		   n++;
+
+		   pcl::PointXYZ pt4;
+		   pt4.x = transaction.submaps[i].boundingbox.max_x;
+		   pt4.y = transaction.submaps[i].boundingbox.min_y;
+		   pt4.z = transaction.submaps[i].boundingbox.min_z;
+		   sprintf(t, "%d", n);
+		   s = t;
+		   viewer->addSphere(pt4, sphere_size2, f_red, f_green, f_blue, s);
+		   n++;
+
+		   pcl::PointXYZ pt5;
+		   pt5.x = transaction.submaps[i].boundingbox.min_x;
+		   pt5.y = transaction.submaps[i].boundingbox.min_y;
+		   pt5.z = transaction.submaps[i].boundingbox.max_z;
+		   sprintf(t, "%d", n);
+		   s = t;
+		   viewer->addSphere(pt5, sphere_size2, f_red, f_green, f_blue, s);
+		   n++;
+
+		   pcl::PointXYZ pt6;
+		   pt6.x = transaction.submaps[i].boundingbox.min_x;
+		   pt6.y = transaction.submaps[i].boundingbox.max_y;
+		   pt6.z = transaction.submaps[i].boundingbox.max_z;
+		   sprintf(t, "%d", n);
+		   s = t;
+		   viewer->addSphere(pt6, sphere_size2, f_red, f_green, f_blue, s);
+		   n++;
+
+		   pcl::PointXYZ pt7;
+		   pt7.x = transaction.submaps[i].boundingbox.max_x;
+		   pt7.y = transaction.submaps[i].boundingbox.max_y;
+		   pt7.z = transaction.submaps[i].boundingbox.max_z;
+		   sprintf(t, "%d", n);
+		   s = t;
+		   viewer->addSphere(pt7, sphere_size2, f_red, f_green, f_blue, s);
+		   n++;
+
+		   pcl::PointXYZ pt8;
+		   pt8.x = transaction.submaps[i].boundingbox.max_x;
+		   pt8.y = transaction.submaps[i].boundingbox.min_y;
+		   pt8.z = transaction.submaps[i].boundingbox.max_z;
+		   sprintf(t, "%d", n);
+		   s = t;
+		   viewer->addSphere(pt8, sphere_size2, f_red, f_green, f_blue, s);
+		   n++;
+
+		   sprintf(t, "%d", n);
+		   s = t;
+		   viewer->addLine(pt1, pt2, f_red, f_green, f_blue, s);
+		   viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_LINE_WIDTH, line_width, s);
+		   n++;
+
+		   sprintf(t, "%d", n);
+		   s = t;
+		   viewer->addLine(pt2, pt3, f_red, f_green, f_blue, s);
+		   viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_LINE_WIDTH, line_width, s);
+		   n++;
+
+		   sprintf(t, "%d", n);
+		   s = t;
+		   viewer->addLine(pt3, pt4, f_red, f_green, f_blue, s);
+		   viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_LINE_WIDTH, line_width, s);
+		   n++;
+
+		   sprintf(t, "%d", n);
+		   s = t;
+		   viewer->addLine(pt4, pt1, f_red, f_green, f_blue, s);
+		   viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_LINE_WIDTH, line_width, s);
+		   n++;
+
+		   sprintf(t, "%d", n);
+		   s = t;
+		   viewer->addLine(pt5, pt6, f_red, f_green, f_blue, s);
+		   viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_LINE_WIDTH, line_width, s);
+		   n++;
+
+		   sprintf(t, "%d", n);
+		   s = t;
+		   viewer->addLine(pt6, pt7, f_red, f_green, f_blue, s);
+		   viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_LINE_WIDTH, line_width, s);
+		   n++;
+
+		   sprintf(t, "%d", n);
+		   s = t;
+		   viewer->addLine(pt7, pt8, f_red, f_green, f_blue, s);
+		   viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_LINE_WIDTH, line_width, s);
+		   n++;
+
+		   sprintf(t, "%d", n);
+		   s = t;
+		   viewer->addLine(pt8, pt5, f_red, f_green, f_blue, s);
+		   viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_LINE_WIDTH, line_width, s);
+		   n++;
+
+		   sprintf(t, "%d", n);
+		   s = t;
+		   viewer->addLine(pt1, pt5, f_red, f_green, f_blue, s);
+		   viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_LINE_WIDTH, line_width, s);
+		   n++;
+
+		   sprintf(t, "%d", n);
+		   s = t;
+		   viewer->addLine(pt2, pt6, f_red, f_green, f_blue, s);
+		   viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_LINE_WIDTH, line_width, s);
+		   n++;
+
+		   sprintf(t, "%d", n);
+		   s = t;
+		   viewer->addLine(pt3, pt7, f_red, f_green, f_blue, s);
+		   viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_LINE_WIDTH, line_width, s);
+		   n++;
+
+		   sprintf(t, "%d", n);
+		   s = t;
+		   viewer->addLine(pt4, pt8, f_red, f_green, f_blue, s);
+		   viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_LINE_WIDTH, line_width, s);
+		   n++;
+
+	}
+
+	cout << "Click X(close) to continue..." << endl;
+	while (!viewer->wasStopped())
+	{
+		viewer->spinOnce(100);
+		boost::this_thread::sleep(boost::posix_time::microseconds(100000));
+	}
+
+}
+
+template <typename PointT>
+void DataIo<PointT>::displaynclouds(const typename std::vector<pcl::PointCloud<PointT> > & clouds, string displayname, int display_downsample_ratio)
+{
+    boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer(new pcl::visualization::PCLVisualizer(displayname));
+	viewer->setBackgroundColor(0, 0, 0);
+	char t[256];
+	string s;
+    
+	float frame_color_r,frame_color_g,frame_color_b;
+
+	for (int j=0; j < clouds.size(); j++)
+	{
+        pcXYZRGBPtr rgbcloud(new pcXYZRGB);
+        
+        switch (j)
+		{
+		case 0:
+			frame_color_r = 0;
+			frame_color_g = 0;
+			frame_color_b = 255;
+			break;
+		case 1:
+			frame_color_r = 0;
+			frame_color_g = 255;
+			frame_color_b = 0;
+			break;
+		case 2:
+			frame_color_r = 255;
+			frame_color_g = 0;
+			frame_color_b = 0;
+			break;
+		case 3:
+			frame_color_r = 255;
+			frame_color_g = 255;
+			frame_color_b = 0;
+			break;
+		default:
+		    frame_color_r = 255 * (rand() / (1.0 + RAND_MAX));
+		    frame_color_g = 255 * (rand() / (1.0 + RAND_MAX));
+	        frame_color_b = 255 * (rand() / (1.0 + RAND_MAX));
+			break;
+		}
+
+	    for (size_t i = 0; i < clouds[j].points.size(); ++i)
+	    {
+		    if (i%display_downsample_ratio==0) //Downsample for display
+		    {
+			   pcl::PointXYZRGB pt;
+		       pt.x = clouds[j].points[i].x;
+		       pt.y = clouds[j].points[i].y;
+		       pt.z = clouds[j].points[i].z;
+		       pt.r = frame_color_r;
+		       pt.g = frame_color_g;
+		       pt.b = frame_color_b;
+			   rgbcloud->points.push_back(pt);
+			}
+		}
+		sprintf(t, "%d", j);
+		s = t;
+		viewer->addPointCloud(rgbcloud, s);
+	
+	} 
+
+    cout << "Click X(close) to continue..." << endl;
+	while (!viewer->wasStopped())
+	{
+		viewer->spinOnce(100);
+		boost::this_thread::sleep(boost::posix_time::microseconds(100000));
+	}
+
+}
+
+template <typename PointT>
+void DataIo<PointT>::displaymulticlouds(const typename pcl::PointCloud<PointT>::Ptr &Cloud0, const typename pcl::PointCloud<PointT>::Ptr &Cloud1, const typename pcl::PointCloud<PointT>::Ptr &Cloud2, string displayname)
 {
 	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer(new pcl::visualization::PCLVisualizer(displayname));
 	viewer->setBackgroundColor(255, 255, 255);
@@ -953,11 +1547,11 @@ bool DataIo<PointT>::batchWriteBlockInColor(const string &fileName, typename std
 
 		string BlockFolder, BlockFilename;
 		ostringstream oss;
-		oss.setf(ios::right);      //���ö��뷽ʽΪ�Ҷ��� 
-		oss.fill('0');             //������䷽ʽ,����λ��0
-		oss.width(3);              //���ÿ���Ϊ2��ֻ������������� 
+		oss.setf(ios::right);      
+		oss.fill('0');             
+		oss.width(3);             
 		oss << j; 
-		// �˴����ɣ���000��001��002������˳������;
+		
 		
 		BlockFolder = fileName.substr(0, fileName.rfind("."));
 
@@ -1824,18 +2418,19 @@ template <typename PointT>
 void DataIo<PointT>::display_hdmap_edges(const vector<Edge_between_2Frames> &cons)
 {
 	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer(new pcl::visualization::PCLVisualizer("Graph Viewer"));
-	viewer->setBackgroundColor(0, 0, 0);
+	viewer->setBackgroundColor(255, 255, 255);
 	char t[256];
 	string s;
 	int n = 0;
 
 	float sphere_size, f_red, f_green, f_blue, line_width;
 
-	sphere_size = 3.0;
-	line_width = 0.5;
+	sphere_size = 2.5;
+	line_width = 1.0;
 
 	for (int i = 0; i < cons.size(); i++)
 	{
+		if (i%10==0){
 		// switch (cons[i].block1.data_type)
 		// {
 		// case 1: //ALS
@@ -1865,11 +2460,13 @@ void DataIo<PointT>::display_hdmap_edges(const vector<Edge_between_2Frames> &con
 		f_red = 1.0;
 		f_green = 0.0;
 		f_blue = 0.0;
-      
+        
+		
 		pcl::PointXYZ ptc1;
 		ptc1.x = cons[i].frame1.oxts_position(0);
 		ptc1.y = cons[i].frame1.oxts_position(1);
 		ptc1.z = 0;
+
 		sprintf(t, "%d", n);
 		s = t;
 		viewer->addSphere(ptc1, sphere_size, f_red, f_green, f_blue, s);
@@ -1930,6 +2527,7 @@ void DataIo<PointT>::display_hdmap_edges(const vector<Edge_between_2Frames> &con
 		viewer->addLine(ptc1, ptc2, f_red, f_green, f_blue, s);
 		viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_LINE_WIDTH, line_width, s);
 		n++;
+		}
 	}
 
 	cout << "Click X(close) to continue..." << endl;
@@ -1940,6 +2538,79 @@ void DataIo<PointT>::display_hdmap_edges(const vector<Edge_between_2Frames> &con
 	}
 }
 
+
+template <typename PointT>
+void DataIo<PointT>::display_hdmap_edges(const vector<Edge_between_2Submaps> &cons)
+{
+	boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer(new pcl::visualization::PCLVisualizer("Graph Viewer"));
+	viewer->setBackgroundColor(255, 255, 255);
+	char t[256];
+	string s;
+	int n = 0;
+
+	float sphere_size, f_red, f_green, f_blue, line_width;
+
+	sphere_size = 3.0;
+	line_width = 1.0;
+
+	for (int i = 0; i < cons.size(); i++)
+	{
+		if (1){
+        
+		f_red = 1.0;
+		f_green = 0.0;
+		f_blue = 0.0;
+        
+		
+		pcl::PointXYZ ptc1;
+		ptc1.x = cons[i].submap1.centerpoint.x;
+		ptc1.y = cons[i].submap1.centerpoint.y;
+		ptc1.z = 0;
+
+		sprintf(t, "%d", n);
+		s = t;
+		viewer->addSphere(ptc1, sphere_size, f_red, f_green, f_blue, s);
+		n++;
+
+		pcl::PointXYZ ptc2;
+		ptc2.x = cons[i].submap2.centerpoint.x;
+		ptc2.y = cons[i].submap2.centerpoint.y;
+		ptc2.z = 0;
+		sprintf(t, "%d", n);
+		s = t;
+		viewer->addSphere(ptc2, sphere_size, f_red, f_green, f_blue, s);
+		n++;
+
+		switch (cons[i].type)
+		{
+		case ADJACENT: 
+			f_red = 0.0;
+			f_green = 1.0;
+			f_blue = 1.0;
+			break;
+		case REVISIT: 
+			f_red = 1.0;
+			f_green = 0.0;
+			f_blue = 1.0;
+			break;
+		default:
+			break;
+		}
+		sprintf(t, "%d", n);
+		s = t;
+		viewer->addLine(ptc1, ptc2, f_red, f_green, f_blue, s);
+		viewer->setShapeRenderingProperties(pcl::visualization::PCL_VISUALIZER_LINE_WIDTH, line_width, s);
+		n++;
+		}
+	}
+
+	cout << "Click X(close) to continue..." << endl;
+	while (!viewer->wasStopped())
+	{
+		viewer->spinOnce(100);
+		boost::this_thread::sleep(boost::posix_time::microseconds(100000));
+	}
+}
 
 template <typename PointT>
 bool DataIo<PointT>::lasfileGK2UTM(const string &fileName)
@@ -2140,25 +2811,22 @@ template <typename PointT>
 void DataIo<PointT>::batchdownsamplepair(const Constraint &this_con, typename pcl::PointCloud<PointT>::Ptr &cloud1, typename pcl::PointCloud<PointT>::Ptr &cloud2, typename pcl::PointCloud<PointT>::Ptr &subcloud1, typename pcl::PointCloud<PointT>::Ptr &subcloud2,
 	float ALS_radius, float TLS_radius, float MLS_radius, float BPLS_radius)
 {
-	VoxelFilter<pcl::PointXYZ> vf_als(ALS_radius);
-	VoxelFilter<pcl::PointXYZ> vf_tls(TLS_radius);
-	VoxelFilter<pcl::PointXYZ> vf_mls(MLS_radius);
-	VoxelFilter<pcl::PointXYZ> vf_bpls(BPLS_radius);
+	CFilter<pcl::PointXYZ> filter;
 
 	//Down-sampling
 	switch (this_con.block1.data_type)
 	{
 	case 1: //ALS
-		subcloud1 = vf_als.filter(cloud1);
+		subcloud1 = filter.VoxelDownsample(cloud1,ALS_radius);
 		break;
 	case 2: //TLS
-		subcloud1 = vf_tls.filter(cloud1);
+		subcloud1 = filter.VoxelDownsample(cloud1,TLS_radius);
 		break;
 	case 3: //MLS
-		subcloud1 = vf_mls.filter(cloud1);
+		subcloud1 = filter.VoxelDownsample(cloud1,MLS_radius);
 		break;
 	case 4: //BPLS
-		subcloud1 = vf_bpls.filter(cloud1);
+		subcloud1 = filter.VoxelDownsample(cloud1,BPLS_radius);
 		break;
 	default:
 		break;
@@ -2166,16 +2834,16 @@ void DataIo<PointT>::batchdownsamplepair(const Constraint &this_con, typename pc
 	switch (this_con.block2.data_type)
 	{
 	case 1: //ALS
-		subcloud2 = vf_als.filter(cloud2);
+		subcloud2 = filter.VoxelDownsample(cloud2,ALS_radius);
 		break;
 	case 2: //TLS
-		subcloud2 = vf_tls.filter(cloud2);
+		subcloud2 = filter.VoxelDownsample(cloud2,TLS_radius);
 		break;
 	case 3: //MLS
-		subcloud2 = vf_mls.filter(cloud2);
+		subcloud2 = filter.VoxelDownsample(cloud2,MLS_radius);
 		break;
 	case 4: //BPLS
-		subcloud2 = vf_bpls.filter(cloud2);
+		subcloud2 = filter.VoxelDownsample(cloud2,BPLS_radius);
 		break;
 	default:
 		break;
@@ -2226,7 +2894,180 @@ void DataIo<PointT>::batchwritefinalcloud(vector<CloudBlock> &All_blocks, std::v
 		writeLasFile(Filenameout, cloudout, 1);
 		LOG(INFO) << "Output Done for cloud with index " << (*iter).unique_index;
 		LOG(INFO) << "Its position is " << Filenameout;
-		//λ�˽��Ӧ�÷�����; ok
-		//�����ʱ���drift������; not ok yet
+
 	}
+}
+
+template <typename PointT>
+bool DataIo<PointT>::writeOdomPose(const string &output_folder, Transaction &transaction)
+{
+    string output_filename;
+	output_filename=output_folder+"/Submap_Frame_Odom_Pose.txt";
+	
+	FILE *fp=fopen(output_filename.c_str(),"w");
+	for (int i=0; i < transaction.submap_number; i++)
+		{
+            for(int j=0; j< transaction.submaps[i].frame_number; j++)
+			{
+                //FRAME #TRAN #SUBMAP #FRAME POSE3*4
+				fprintf(fp,"FRAME\t%d\t%d\t%d\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\n", transaction.unique_id, transaction.submaps[i].id_in_transaction, transaction.submaps[i].frames[j].id_in_transaction,
+				 transaction.submaps[i].frames[j].odom_pose(0,0),transaction.submaps[i].frames[j].odom_pose(0,1),transaction.submaps[i].frames[j].odom_pose(0,2),transaction.submaps[i].frames[j].odom_pose(0,3),
+				 transaction.submaps[i].frames[j].odom_pose(1,0),transaction.submaps[i].frames[j].odom_pose(1,1),transaction.submaps[i].frames[j].odom_pose(1,2),transaction.submaps[i].frames[j].odom_pose(1,3),
+				 transaction.submaps[i].frames[j].odom_pose(2,0),transaction.submaps[i].frames[j].odom_pose(2,1),transaction.submaps[i].frames[j].odom_pose(2,2),transaction.submaps[i].frames[j].odom_pose(2,3));			 
+			}
+		}
+    fclose(fp);
+
+	// ofstream ofs;
+	// ofs.open(output_filename.c_str());
+	// if (ofs.is_open())
+	// {
+		
+	// 	for (int i=0; i < transaction.submap_number; i++)
+	// 	{
+    //         for(int j=0; j< transaction.submaps[i].frame_number; j++)
+	// 		{
+    //             ofs << "FRAME\t"<<transaction.submaps[i].frames[j].id_in_transaction<<"\t"<<"SUBMAP\t"<<transaction.submaps[i].id_in_transaction<<"\t"
+	// 		    << setiosflags(ios::fixed) << setprecision(5) << transaction.submaps[i].frames[j].odom_pose(0,0) << "\t"
+	// 			<< setiosflags(ios::fixed) << setprecision(5) << transaction.submaps[i].frames[j].odom_pose(0,1) << "\t"
+	// 			<< setiosflags(ios::fixed) << setprecision(5) << transaction.submaps[i].frames[j].odom_pose(0,2) << "\t"
+	// 			<< setiosflags(ios::fixed) << setprecision(5) << transaction.submaps[i].frames[j].odom_pose(0,3) << "\t"
+	// 			<< setiosflags(ios::fixed) << setprecision(5) << transaction.submaps[i].frames[j].odom_pose(1,0) << "\t"
+	// 			<< setiosflags(ios::fixed) << setprecision(5) << transaction.submaps[i].frames[j].odom_pose(1,1) << "\t"
+	// 			<< setiosflags(ios::fixed) << setprecision(5) << transaction.submaps[i].frames[j].odom_pose(1,2) << "\t"
+	// 			<< setiosflags(ios::fixed) << setprecision(5) << transaction.submaps[i].frames[j].odom_pose(1,3) << "\t"
+	// 			<< setiosflags(ios::fixed) << setprecision(5) << transaction.submaps[i].frames[j].odom_pose(2,0) << "\t"
+    //             << setiosflags(ios::fixed) << setprecision(5) << transaction.submaps[i].frames[j].odom_pose(2,1) << "\t"
+	// 		    << setiosflags(ios::fixed) << setprecision(5) << transaction.submaps[i].frames[j].odom_pose(2,2) << "\t"
+	// 		    << setiosflags(ios::fixed) << setprecision(5) << transaction.submaps[i].frames[j].odom_pose(2,3) << endl;
+	// 		}
+	// 	}
+	// 	ofs.close();
+	// }
+	// else{ return 0; }
+	cout << "Output finished ... ..." << endl;
+	return 1;
+
+}
+
+
+template <typename PointT>
+bool DataIo<PointT>::writePoseGraph(const string &output_folder, Transaction &transaction)
+{
+	string output_filename;
+	output_filename=output_folder+"/Pose_Graph_Data.txt";
+	
+    FILE *fp=fopen(output_filename.c_str(),"w");
+	for (int i=0; i < transaction.submap_number; i++) //Node
+	{
+            //SUBMAP #TRAN #SUBMAP POSE3*4
+			//With Noise
+			fprintf(fp,"SUBMAP\t%d\t%d\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\n", transaction.unique_id, transaction.submaps[i].id_in_transaction,
+				 transaction.submaps[i].oxts_noise_pose(0,0), transaction.submaps[i].oxts_noise_pose(0,1), transaction.submaps[i].oxts_noise_pose(0,2), transaction.submaps[i].oxts_noise_pose(0,3),
+				 transaction.submaps[i].oxts_noise_pose(1,0), transaction.submaps[i].oxts_noise_pose(1,1), transaction.submaps[i].oxts_noise_pose(1,2), transaction.submaps[i].oxts_noise_pose(1,3),
+				 transaction.submaps[i].oxts_noise_pose(2,0), transaction.submaps[i].oxts_noise_pose(2,1), transaction.submaps[i].oxts_noise_pose(2,2), transaction.submaps[i].oxts_noise_pose(2,3));
+			// //Without Noise
+			// fprintf(fp,"SUBMAP\t%d\t%d\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\n", transaction.unique_id, transaction.submaps[i].id_in_transaction,
+			// 	 transaction.submaps[i].oxts_pose(0,0), transaction.submaps[i].oxts_pose(0,1), transaction.submaps[i].oxts_pose(0,2), transaction.submaps[i].oxts_pose(0,3),
+			// 	 transaction.submaps[i].oxts_pose(1,0), transaction.submaps[i].oxts_pose(1,1), transaction.submaps[i].oxts_pose(1,2), transaction.submaps[i].oxts_pose(1,3),
+			// 	 transaction.submaps[i].oxts_pose(2,0), transaction.submaps[i].oxts_pose(2,1), transaction.submaps[i].oxts_pose(2,2), transaction.submaps[i].oxts_pose(2,3);
+	}
+	
+	//Edges (Transformation from Node 2 to Node 1)
+    for (int i=0; i < transaction.submap_edges.size(); i++)
+	{
+            //EDGE #TRAN1 #SUBMAP1 #TRAN2 #SUBMAP2 EDGETYPE POSE3*4 INFO-MATRIX 6*6
+			fprintf(fp,"EDGE\t%d\t%d\t%d\t%d\t",transaction.unique_id, transaction.submap_edges[i].submap1.id_in_transaction,transaction.unique_id,transaction.submap_edges[i].submap2.id_in_transaction);
+			switch (transaction.submap_edges[i].type)
+			{
+			case ADJACENT:
+				fprintf(fp,"ADJACENT\t");
+				break;
+			case REVISIT:
+				fprintf(fp,"REVISIT\t");
+				break;
+			default:
+			    fprintf(fp,"UNKNOWN\t");
+				break;
+			}
+			
+			fprintf(fp,"%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\t%lf\n", 
+				transaction.submap_edges[i].Trans1_2(0,0), transaction.submap_edges[i].Trans1_2(0,1), transaction.submap_edges[i].Trans1_2(0,2), transaction.submap_edges[i].Trans1_2(0,3),
+				transaction.submap_edges[i].Trans1_2(1,0), transaction.submap_edges[i].Trans1_2(1,1), transaction.submap_edges[i].Trans1_2(1,2), transaction.submap_edges[i].Trans1_2(1,3),
+				transaction.submap_edges[i].Trans1_2(2,0), transaction.submap_edges[i].Trans1_2(2,1), transaction.submap_edges[i].Trans1_2(2,2), transaction.submap_edges[i].Trans1_2(2,3),
+				transaction.submap_edges[i].confidence, 0.0,0.0,0.0,0.0,0.0,
+				0.0,transaction.submap_edges[i].confidence, 0.0,0.0,0.0,0.0,
+				0.0,0.0,transaction.submap_edges[i].confidence, 0.0,0.0,0.0,
+				0.0,0.0,0.0,transaction.submap_edges[i].confidence, 0.0,0.0,
+				0.0,0.0,0.0,0.0,transaction.submap_edges[i].confidence, 0.0,
+			    0.0,0.0,0.0,0.0,0.0,transaction.submap_edges[i].confidence);      
+	}
+    fclose(fp);
+
+	// ofstream ofs;
+	// ofs.open(output_filename.c_str());
+	// if (ofs.is_open())
+	// {
+	// 	//Nodes
+	// 	for (int i=0; i < transaction.submap_number; i++)
+	// 	{
+    //         ofs << "SUBMAP\t"<<transaction.unique_id<< "\t"<<transaction.submaps[i].id_in_transaction<<"\t"
+	// 		    << setiosflags(ios::fixed) << setprecision(5) << transaction.submaps[i].oxts_pose(0,0) << "\t"
+	// 			<< setiosflags(ios::fixed) << setprecision(5) << transaction.submaps[i].oxts_pose(0,1) << "\t"
+	// 			<< setiosflags(ios::fixed) << setprecision(5) << transaction.submaps[i].oxts_pose(0,2) << "\t"
+	// 			<< setiosflags(ios::fixed) << setprecision(5) << transaction.submaps[i].oxts_pose(0,3) << "\t"
+	// 			<< setiosflags(ios::fixed) << setprecision(5) << transaction.submaps[i].oxts_pose(1,0) << "\t"
+	// 			<< setiosflags(ios::fixed) << setprecision(5) << transaction.submaps[i].oxts_pose(1,1) << "\t"
+	// 			<< setiosflags(ios::fixed) << setprecision(5) << transaction.submaps[i].oxts_pose(1,2) << "\t"
+	// 			<< setiosflags(ios::fixed) << setprecision(5) << transaction.submaps[i].oxts_pose(1,3) << "\t"
+	// 			<< setiosflags(ios::fixed) << setprecision(5) << transaction.submaps[i].oxts_pose(2,0) << "\t"
+	// 			<< setiosflags(ios::fixed) << setprecision(5) << transaction.submaps[i].oxts_pose(2,1) << "\t"
+	// 			<< setiosflags(ios::fixed) << setprecision(5) << transaction.submaps[i].oxts_pose(2,2) << "\t"
+	// 			<< setiosflags(ios::fixed) << setprecision(5) << transaction.submaps[i].oxts_pose(2,3) << endl;
+	// 	}
+		
+	// 	//Edges (Transformation from Node 2 to Node 1)
+    //     for (int i=0; i < transaction.submap_edges.size(); i++)
+	// 	{
+    //         ofs << "EDGE\t"<<transaction.unique_id<< "\t"<< transaction.submap_edges[i].submap1.id_in_transaction<<"\t"
+	// 		<<transaction.unique_id<< "\t"<<transaction.submap_edges[i].submap2.id_in_transaction<<"\t";
+	// 		switch (transaction.submap_edges[i].type)
+	// 		{
+	// 		case ADJACENT:
+	// 			ofs << "ADJACENT\t";
+	// 			break;
+	// 		case REVISIT:
+	// 			ofs << "REVISIT\t";
+	// 			break;
+	// 		default:
+	// 		    ofs << "UNKNOWN\t";
+	// 			break;
+	// 		}
+
+	// 		ofs<< setiosflags(ios::fixed) << setprecision(5)<< transaction.submap_edges[i].Trans1_2(0,0) << "\t"
+	// 		   << setiosflags(ios::fixed) << setprecision(5)<< transaction.submap_edges[i].Trans1_2(0,1) << "\t"
+	// 		   << setiosflags(ios::fixed) << setprecision(5)<< transaction.submap_edges[i].Trans1_2(0,2) << "\t"
+	// 		   << setiosflags(ios::fixed) << setprecision(5)<< transaction.submap_edges[i].Trans1_2(0,3) << "\t"
+	// 		   << setiosflags(ios::fixed) << setprecision(5)<< transaction.submap_edges[i].Trans1_2(1,0) << "\t"
+	// 		   << setiosflags(ios::fixed) << setprecision(5)<< transaction.submap_edges[i].Trans1_2(1,1) << "\t"
+	// 		   << setiosflags(ios::fixed) << setprecision(5)<< transaction.submap_edges[i].Trans1_2(1,2) << "\t"
+	// 		   << setiosflags(ios::fixed) << setprecision(5)<< transaction.submap_edges[i].Trans1_2(1,3) << "\t"
+	// 		   << setiosflags(ios::fixed) << setprecision(5)<< transaction.submap_edges[i].Trans1_2(2,0) << "\t"
+	// 		   << setiosflags(ios::fixed) << setprecision(5)<< transaction.submap_edges[i].Trans1_2(2,1) << "\t"
+	// 		   << setiosflags(ios::fixed) << setprecision(5)<< transaction.submap_edges[i].Trans1_2(2,2) << "\t"
+	// 		   << setiosflags(ios::fixed) << setprecision(5)<< transaction.submap_edges[i].Trans1_2(2,3) << "\t"
+	// 		   << transaction.submap_edges[i].confidence << "\t" << 0 <<"\t"<< 0<< "\t" << 0<< "\t" << 0<< "\t" << 0<<"\t"
+	// 		   << 0 <<"\t"<<transaction.submap_edges[i].confidence << "\t" <<  0<< "\t" << 0<< "\t" << 0<< "\t" << 0<<"\t"
+	// 		   << 0 <<"\t"<< 0 << "\t" << transaction.submap_edges[i].confidence << "\t" <<0<< "\t" << 0<< "\t" << 0<<"\t"
+	// 		   << 0 <<"\t"<< 0 << "\t" << 0 << "\t" << transaction.submap_edges[i].confidence << "\t" << 0 << "\t" << 0<<"\t"
+	// 		   << 0 <<"\t"<< 0<< "\t" << 0<< "\t" << 0 << "\t" << transaction.submap_edges[i].confidence << "\t" <<0 << "\t" 
+	// 		   << 0 <<"\t"<< 0<< "\t" << 0<< "\t" << 0<< "\t" << 0<<"\t"<< transaction.submap_edges[i].confidence <<endl;
+			  
+	// 	}
+		
+	// 	ofs.close();
+	// }
+	// else{ return 0; }
+	cout << "Output finished ... ..." << endl;
+	return 1;
 }
