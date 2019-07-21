@@ -3,6 +3,8 @@
 
 #include <vector>
 #include "utility.h"
+#include "common_reg.cpp"
+#include "filter.cpp"
 
 using namespace utility;
 using namespace std;
@@ -29,46 +31,15 @@ namespace utility
 		float confidence;          
 	};
     
-	enum frame_type{ HDL64, VLP16, VLP32};
-    
-    enum edge_type{ REVISIT, ADJACENT };
-
-    struct Frame // Cloud Frame Node
-	{
-        int unique_id;
-		frame_type type;
-		int transaction_id;
-        int id_in_transaction;
-
-		string pcd_file_name;
-		Eigen::Matrix4d oxts_pose;
-        Eigen::Vector3d oxts_position;
-		timeval time_stamp;
-    
-		Bounds boundingbox;
-		CenterPoint centerpoint;
-		Eigen::Matrix4d optimized_pose;
-        
-		Frame* lastframe;
-		pcl::PointCloud<pcl::PointXYZI>::Ptr pointcloud;
-
-	};
-
-	struct Edge_between_2Frames //Registration edge between two cloud frame nodes
-	{
-		int unique_id;
-		edge_type type;
-     
-		Frame frame1,frame2;
-		Eigen::Matrix4d Trans1_2 = Eigen::Matrix4d::Identity(4,4);
-		float confidence;    
-	};
-
-
 
 	class Constraint_Finder
 	{
 	public:
+		
+		//Constraint_Finder(); //Constructor
+
+		//~Constraint_Finder(); //Destructor
+
 		// Constraint Type 1
 		void find_strip_adjacent_constraint(vector<vector<CloudBlock> > &blocks_all, vector<Constraint> &innerstrip_cons_all);
 		void find_adjacent_constraint_in_strip(vector<CloudBlock> &blocks_strip, vector<Constraint> &innerstrip_cons);
@@ -83,20 +54,56 @@ namespace utility
         
 
 		//For HDMap application
-        void find_hdmap_adjacent_constraints(vector<Frame> &HDmap_frames, vector<Edge_between_2Frames> &HDmap_adjacent_edges);
+    
+		void divide_submap(Transaction & transaction, int max_frame_num, float max_tran_dis, float max_heading_angle);
 
-        void find_hdmap_revisit_constraints(vector<Frame> &HDmap_frames, vector<Edge_between_2Frames> &HDmap_revisit_edges, int index_min_interval, float max_revisit_pos_dis);
+		void front_end(Transaction &transaction);
         
-        void batch_find_hdmap_constraints(vector<Frame> &HDmap_frames, vector<Edge_between_2Frames> &HDmap_edges, int index_min_interval, float max_revisit_pos_distance);
+		void back_end(Transaction &transaction, int index_min_interval, float max_revisit_pos_distance, float min_iou);
+        
+		//Find Constraints among Frame Nodes
+        void find_hdmap_adjacent_constraints_frame(vector<Frame> &HDmap_frames, vector<Edge_between_2Frames> &HDmap_adjacent_edges);
+
+        void find_hdmap_revisit_constraints_frame(vector<Frame> &HDmap_frames, vector<Edge_between_2Frames> &HDmap_revisit_edges, int index_min_interval, float max_revisit_pos_dis);
+        
+        void batch_find_hdmap_constraints_frame(vector<Frame> &HDmap_frames, vector<Edge_between_2Frames> &HDmap_edges, int index_min_interval, float max_revisit_pos_distance);
        
+	    //Find Constraints among Submap Nodes
+        void find_hdmap_adjacent_constraints_submap(Transaction & transaction, vector<Edge_between_2Submaps> & HDmap_adjacent_edges);
+
+        void find_hdmap_revisit_constraints_submap(Transaction & transaction, vector<Edge_between_2Submaps> & HDmap_revisit_edges, int index_min_interval, float max_revisit_pos_dis,  float min_iou);
+        
+        void batch_find_hdmap_constraints_submap(Transaction & transaction, int index_min_interval, float max_revisit_pos_distance, float min_iou);
+
+        //Submap Odometry
+	   	bool submapOdom(SubMap & submap);
+        
+		//Frame to Map Reg
+	    bool pairwiseReg(Frame &frame1, Frame &frame2);
+        
+		//Map to Map Reg 
+		bool pairwiseReg(Edge_between_2Submaps &edge);
+
 	protected:
+
 		void find_neighbor_k_cps(CenterPoint &cp_search, vector<CenterPoint> &cp_points, int k);
 		void find_neighbor_r_cps(CenterPoint &cp_search, vector<CenterPoint> &cp_points, float r);
         
 		double calculate_iou(Bounds & bound1, Bounds & bound2);
+		
+		bool merge_frame_bounds_and_centers(SubMap & submap);  //Use the submap's frames' bounds and center points to calculate the submap's bounds and center
+
 		bool judge_adjacent(CloudBlock & block1, CloudBlock & block2);
         bool judge_adjacent_hdmap_index(Frame & frame1, Frame & frame2, int index_min_interval);         //for HDMap application
         bool judge_adjacent_hdmap_time(Frame & frame1, Frame & frame2, double min_deltatime_in_us);      //for HDMap application   
+        bool judge_adjacent_hdmap_index(SubMap & submap1, SubMap & submap2, int index_min_interval);     //for HDMap application  
+		
+		void add_noise(Frame &frame, float nosie_max_t, float noise_max_r);
+
+		float getHeading(vector<IMU_data> &imu_datas, float delta_time_second);
+		float getDistance(Eigen::Vector3f &position1, Eigen::Vector3f &position2);
+        
+		float getMAE(SubMap & submap);
 
 	private:
 

@@ -35,7 +35,8 @@ public:
 	
 	// Please add some randomly sub-sampling output methods
     
-	bool HDmap_data_import (const string &pointcloud_fileList, const string &pose_fileName, std::vector<Frame> &HD_map_data);      
+	bool HDmap_data_import (const string &pointcloud_folder, const string &pointcloud_fileList,
+       const string &pose_fileName, const string &imu_fileName,int begin_frame_id, int end_frame_id, Transaction & transaction_data);
 
 	// Point Cloud IO for all kinds of formats;
 	bool readCloudFile     (const string &fileName, const typename pcl::PointCloud<PointT>::Ptr &pointCloud);
@@ -64,9 +65,14 @@ public:
 
 	// dxf IO;
     
-    // pose IO;
-	bool readposes(const string &fileName, std::vector<Eigen::Matrix4d> &poses);
+    // pose/imu IO;
+	bool readposes(const string &fileName, std::vector<Eigen::Matrix4f> &poses);
+    bool readimudata(const string &fileName, std::vector<std::vector<IMU_data> > &imu_datas);
     
+    // Output Pose Graph Information;
+	bool writePoseGraph(const string &output_folder, Transaction &transaction);
+    bool writeOdomPose(const string &output_folder, Transaction &transaction);
+
 	// Read active object bounding boxs for active object filtering
 
 	// Batch read filename from folder
@@ -77,10 +83,21 @@ public:
 	void batchReadMultiSourceFileNamesInDataFolders(const std::string &ALS_folder, const std::string &TLS_folder, const std::string &MLS_folder, const std::string &BPLS_folder,
 		std::vector<std::vector<std::string> > &ALS_strip_files, std::vector<std::string> &TLS_files, std::vector<std::string> &MLS_files, std::vector<std::string> &BPLS_files);
 
-	// Display via VTK;
-	void display          (const typename pcl::PointCloud<PointT>::Ptr &cloud1, const typename pcl::PointCloud<PointT>::Ptr &cloud2, string displayname);
-	void displaymulti     (const typename pcl::PointCloud<PointT>::Ptr &cloud0, const typename pcl::PointCloud<PointT>::Ptr &cloud1, const typename pcl::PointCloud<PointT>::Ptr &cloud2, string displayname);
+	// Display point cloud via VTK;
+	void display1cloud        (const typename pcl::PointCloud<PointT>::Ptr &cloud, std::string displayname, int display_downsample_ratio);
+	void display2clouds       (const typename pcl::PointCloud<PointT>::Ptr &cloud1, const typename pcl::PointCloud<PointT>::Ptr &cloud2, std::string displayname, int display_downsample_ratio);
+    void display3clouds       (const typename pcl::PointCloud<PointT>::Ptr &Cloud1, const typename pcl::PointCloud<PointT>::Ptr &Cloud2,  const typename pcl::PointCloud<PointT>::Ptr &Cloud3 ,string displayname, int display_downsample_ratio);
+	void displaymulticlouds   (const typename pcl::PointCloud<PointT>::Ptr &cloud0, const typename pcl::PointCloud<PointT>::Ptr &cloud1, const typename pcl::PointCloud<PointT>::Ptr &cloud2, std::string displayname);
+	void displaynclouds       (const typename std::vector<pcl::PointCloud<PointT> > & clouds, std::string displayname, int display_downsample_ratio);
+    void display_submap       (const SubMap & submap, std::string displayname, color_type color_mode, int display_downsample_ratio);
+	void display_trajectory   (const Transaction &transaction, std::string displayname);
 	
+	//Display of Graph 
+	void display2Dboxes (const vector<CloudBlock> &blocks);
+	void display2Dcons  (const vector<Constraint> &cons);
+    void display_hdmap_edges (const vector<Edge_between_2Frames> &cons);
+	void display_hdmap_edges (const vector<Edge_between_2Submaps> &cons);
+
 	// For ALS Division
 	void ALS_block_by_time(const typename pcl::PointCloud<PointT>::Ptr &pointCloud, typename std::vector<pcl::PointCloud<PointT> > &CloudBlocks, float time_step_in_second);
 	bool batchWriteBlockInColor(const string &fileName, typename std::vector<pcl::PointCloud<PointT> > &CloudBlocks, bool automatic_shift_or_not);
@@ -117,10 +134,6 @@ public:
 	//Batch output final point clouds
 	void batchwritefinalcloud(vector<CloudBlock> &All_blocks, std::vector<std::vector<std::string> > &ALS_strip_files, std::vector<std::string> &TLS_files, std::vector<std::string> &MLS_files, std::vector<std::string> &BPLS_files);
 
-	//Display of boxes
-	void display2Dboxes(const vector<CloudBlock> &blocks);
-	void display2Dcons(const vector<Constraint> &cons);
-    void display_hdmap_edges(const vector<Edge_between_2Frames> &cons);
 	
  
 
@@ -128,6 +141,7 @@ protected:
 
 private:
 	vector<double> global_shift;
+	
 };
 
 

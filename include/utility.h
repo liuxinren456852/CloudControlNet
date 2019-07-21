@@ -21,9 +21,11 @@
 
 #include <vector>
 #include <list>
+#include <fstream>
 
 using namespace std;
 
+typedef pcl::PointXYZINormal Point_T; 
 
 //Max and Min
 #define max_(a,b) (((a) > (b)) ? (a) : (b))
@@ -82,50 +84,182 @@ namespace utility
 			min_x = min_y = min_z = max_x = max_y = max_z = 0.0;
 		}
 	};
+    
+	enum color_type{ INTENSITY, HEIGHT, SINGLE, FRAME};
 
-	struct Grid
+	enum frame_type{ HDL64, VLP16, VLP32};
+    
+    enum edge_type{ REVISIT, ADJACENT };
+    
+	enum point_type {GROUND, EDGE, PLANAR, UNKNOWN};
+
+    struct IMU_data 
 	{
-		bool is_empty;
-		Grid()
-		{
-			is_empty = true;
-		}
+	    float ax; //Unit: m/s^2
+		float ay; //Unit: m/s^2
+		float az; //Unit: m/s^2
+		float wx; //Unit: rad/s
+		float wy; //Unit: rad/s
+		float wz; //Unit: rad/s	
+
+		timeval time_stamp;
 	};
 
-	struct Voxel
+	struct Frame //Cloud Frame Node
 	{
-		vector<int>point_id;
-		float min_z;
-		float max_z;
-		float dertaz;
-		float min_z_x;//X of Lowest Point in the Voxel;
-		float min_z_y;//Y of Lowest Point in the Voxel;
-		float NeighborMin_z;
-		int PointsNumber;
-		float mean_z;
-		Voxel()
-		{
-			min_z = min_z_x = min_z_y = NeighborMin_z = mean_z = 0.f;
-			PointsNumber = 1;
-			dertaz = 0.0;
-		}
+        frame_type type;
+
+		int unique_id;
+		int transaction_id;
+        int id_in_transaction;
+		int submap_id;
+		int id_in_submap;
+
+		string pcd_file_name;
+		timeval time_stamp;
+		
+		Eigen::Vector3f oxts_position;
+		Eigen::Matrix4f oxts_pose;
+		Eigen::Matrix4f oxts_noise_pose;
+		Eigen::Matrix4f odom_pose;  
+		Eigen::Matrix4f optimized_pose;  
+		
+        vector<IMU_data> imu_datas;
+
+		Bounds boundingbox;
+		CenterPoint centerpoint;
+	   
+		//Lidar Station Center
+		pcl::PointCloud<Point_T>::Ptr pointcloud_lidar;       
+		pcl::PointCloud<Point_T>::Ptr pointcloud_lidar_down;
+        
+		//Feature points (Lidar Station Center)
+		pcl::PointCloud<Point_T>::Ptr pointcloud_ground;
+		pcl::PointCloud<Point_T>::Ptr pointcloud_ground_down;
+		pcl::PointCloud<Point_T>::Ptr pointcloud_edge;
+        pcl::PointCloud<Point_T>::Ptr pointcloud_edge_down;
+		pcl::PointCloud<Point_T>::Ptr pointcloud_planar;
+        pcl::PointCloud<Point_T>::Ptr pointcloud_planar_down;
+        pcl::PointCloud<Point_T>::Ptr pointcloud_sphere;
+		pcl::PointCloud<Point_T>::Ptr pointcloud_sphere_down;
+
+        //Submap's Reference station Center
+		pcl::PointCloud<Point_T>::Ptr pointcloud_submap;
+		pcl::PointCloud<Point_T>::Ptr pointcloud_submap_down;
+        
+        //Lidar Odometry prediction result in World System
+		pcl::PointCloud<Point_T>::Ptr pointcloud_odom;
+		pcl::PointCloud<Point_T>::Ptr pointcloud_odom_down;
+
+		//OXTS prediction result in World System
+		pcl::PointCloud<Point_T>::Ptr pointcloud_oxts;
+		pcl::PointCloud<Point_T>::Ptr pointcloud_oxts_down;
+        
+		//Optimized prediction result in World System
+		// pcl::PointCloud<Point_T>::Ptr pointcloud_optimized;
+		// pcl::PointCloud<Point_T>::Ptr pointcloud_optimized_down;
 	};
 
-	struct SimplifiedVoxel
+    
+    struct SubMap //Submap Node
 	{
-		vector<int>point_id;
-		float max_curvature;
-		int max_curvature_point_id;
-		bool has_keypoint;
-		SimplifiedVoxel()
-		{
-			has_keypoint = false;
-		}
+		frame_type type;
+		
+		int unique_id;
+		int transaction_id;
+		int id_in_transaction;
+        
+		int frame_number;
+
+        //Of first frame
+	    Eigen::Vector3f oxts_position;
+		Eigen::Matrix4f oxts_pose;
+		Eigen::Matrix4f oxts_noise_pose;
+		Eigen::Matrix4f odom_pose;
+		Eigen::Matrix4f optimized_pose;
+
+		timeval time_stamp;
+
+        Bounds boundingbox;
+		CenterPoint centerpoint;
+        
+		vector<Frame> frames;
+		
+		float submap_mae;
+
+		pcl::PointCloud<Point_T>::Ptr pointcloud_lidar;
+		pcl::PointCloud<Point_T>::Ptr pointcloud_lidar_down;
+		pcl::PointCloud<Point_T>::Ptr pointcloud_oxts;
+		pcl::PointCloud<Point_T>::Ptr pointcloud_oxts_down;
+		pcl::PointCloud<Point_T>::Ptr pointcloud_odom;
+		pcl::PointCloud<Point_T>::Ptr pointcloud_odom_down;
+		pcl::PointCloud<Point_T>::Ptr pointcloud_optimized;
+		pcl::PointCloud<Point_T>::Ptr pointcloud_optimized_down;
+	};
+    
+
+	struct Edge_between_2Frames //Registration edge between two cloud frame nodes
+	{
+		int unique_id;
+		edge_type type;
+     
+		Frame frame1,frame2;
+		Eigen::Matrix4f Trans1_2 = Eigen::Matrix4f::Identity(4,4);  //Transformation from frame 2 to frame 1
+		float confidence;    
+	};
+    
+	
+	struct Edge_between_2Submaps //Registration edge between two submap nodes
+	{
+		int unique_id;
+		edge_type type;
+     
+		SubMap submap1,submap2;
+		Eigen::Matrix4f Trans1_2 = Eigen::Matrix4f::Identity(4,4);  //Transformation from submap 2 to submap 1
+		float confidence;    
 	};
 
+    struct Transaction //Transaction Node
+	{
+        frame_type type;
+		
+		int unique_id;
+        
+		int frame_number;
+		int submap_number;
+        
+		Eigen::Matrix4f calibration_matrix;
+		Eigen::Matrix4f calibration_compensate_matrix;
+		Eigen::Matrix3f bore_sight;
+		Eigen::Vector3f lever_arm;
+
+		timeval time_stamp;
+        
+		Bounds boundingbox;
+		CenterPoint centerpoint;
+
+        vector<Frame> frames;
+		vector<SubMap> submaps;
+        vector<Edge_between_2Submaps> submap_edges;
+        
+		float transaction_mae;
+
+		pcl::PointCloud<Point_T>::Ptr pointcloud_lidar;
+		pcl::PointCloud<Point_T>::Ptr pointcloud_lidar_down;
+		pcl::PointCloud<Point_T>::Ptr pointcloud_oxts;
+		pcl::PointCloud<Point_T>::Ptr pointcloud_oxts_down;
+		pcl::PointCloud<Point_T>::Ptr pointcloud_odom;
+		pcl::PointCloud<Point_T>::Ptr pointcloud_odom_down;
+		pcl::PointCloud<Point_T>::Ptr pointcloud_optimized;
+		pcl::PointCloud<Point_T>::Ptr pointcloud_optimized_down;
+
+	};
+
+	
 	template <typename PointT>
 	class CloudUtility
 	{
+
 	public:
 		//Get Center of a Point Cloud
 		void getCloudCenterPoint(const typename pcl::PointCloud<PointT> & cloud, CenterPoint & centerPoint)
@@ -146,12 +280,12 @@ namespace utility
 		//Get Bound of a Point Cloud
 		void getCloudBound(const typename pcl::PointCloud<PointT> & cloud, Bounds & bound)
 		{
-			double min_x = cloud[0].x;
-			double min_y = cloud[0].y;
-			double min_z = cloud[0].z;
-			double max_x = cloud[0].x;
-			double max_y = cloud[0].y;
-			double max_z = cloud[0].z;
+			double min_x = cloud.points[0].x;
+			double min_y = cloud.points[0].y;
+			double min_z = cloud.points[0].z;
+			double max_x = cloud.points[0].x;
+			double max_y = cloud.points[0].y;
+			double max_z = cloud.points[0].z;
 
 			for (int i = 0; i < cloud.size(); i++)
 			{
