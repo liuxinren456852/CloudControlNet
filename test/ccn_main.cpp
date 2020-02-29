@@ -6,31 +6,11 @@
 #include "graph_optimizer.h"
 #include <glog/logging.h>
 
-
 using namespace std;
 using namespace ccn;
 
 int main(/*int argc, char** argv*/)
 {
-	//ÕûÌåÁ÷³Ì;
-	//Ç°¶Ë;
-	//1.½¨Í¼;
-	//2.°´Í¼Åä×¼;
-
-	//ALS ALS subsample 0.5 0.5   search_dis 1.0  
-	//ALS TLS subsample 0.6 0.2   search_dis 1.5
-
-	//ºó¶Ë;
-	//3.Åä×¼½á¹û×÷Îª¹Û²âÊý¾Ý½øÐÐÓÅ»¯;
-	//4.ÓÅ»¯½á¹ûÖØ½âËã;
-
-	//To do list
-	//¼Ó²¢ÐÐ£¬ÌáÉýÐ§ÂÊ;
-	//ALS+ALSº½´øÅä×¼Ëã·¨¸Ä½ø;
-	//Î»×ËÍ¼¸³È¨Éè¼Æ;
-	//µãÔÆÖØ½âËã;
-	//ÎÈ½¡ÐÔ£¬Â³°ôÐÔÔöÇ¿;
-	//¾«¶È×Ô¼ì½Ï;
 
 	cout << "!----------------------------------------------------------------------------!" << endl;
 	cout << "!                               ALS Refinement                               !" << endl;
@@ -40,9 +20,121 @@ int main(/*int argc, char** argv*/)
 	google::InitGoogleLogging("Mylog");
 	google::SetLogDestination(google::GLOG_INFO, "./log/MyLogInfo");
 	LOG(INFO) << "Launch the program!";
-	
-	/*
-	//µãÔÆÁ½Á½Åä×¼;
+
+	//Import configuration
+	//Data path (4 formats are available: *.pcd, *.las, *.ply, *.txt)
+	std::string ALS_folder = argv[1];
+	std::string TLS_folder = argv[2];
+	std::string MLS_folder = argv[3];
+	std::string BPLS_folder = argv[4];
+
+	int find_constraint_knn = atoi(argv[5]);
+	float find_constraint_overlap_ratio = atof(argv[6]);
+	float downsample_voxels_size_als = atof(argv[7]);
+	float downsample_voxels_size_tls = atof(argv[8]);
+	float downsample_voxels_size_mls = atof(argv[9]);
+	float downsample_voxels_size_bpls = atof(argv[10]);
+	float registration_overlap_search_radius = atof(argv[11]);
+	float registration_min_overlap_ratio = atof(argv[12]);
+	bool registration_use_reciprocal_corres = atoi(argv[13]);
+	bool registration_use_use_trimmed_rejector = atoi(argv[14]);
+	float registration_perturbate_dis = atof(argv[15]);
+
+	//Timing
+	clock_t t0, t1, t2, t3, t4, t5, t6;
+
+	//Preprocessing
+	//Unify the coordinate system
+	//geo.BLH2XYZ_WGS84() //...
+	//Divide the point cloud into blocks by time sequence
+	//io.ALS_block_by_time() //...
+
+	//Read the point clouds' filename bounding box data
+	t0 = clock();
+	DataIo<pcl::PointXYZ> io;
+	vector<vector<string>> ALS_strip_files;
+	vector<string> TLS_files, MLS_files, BPLS_files;
+	io.batchReadMultiSourceFileNamesInDataFolders(ALS_folder, TLS_folder, MLS_folder, BPLS_folder, ALS_strip_files, TLS_files, MLS_files, BPLS_files);
+
+	//Read the point clouds' bounding box data
+	vector<vector<CloudBlock>> ALS_strip_blocks(ALS_strip_files.size());
+	vector<CloudBlock> TLS_blocks(TLS_files.size());
+	vector<CloudBlock> MLS_blocks(MLS_files.size());
+	vector<CloudBlock> BPLS_blocks(BPLS_files.size());
+	vector<CloudBlock> All_blocks;
+	io.batchReadMultiSourceLasBlock(ALS_strip_files, TLS_files, MLS_files, BPLS_files, ALS_strip_blocks, TLS_blocks, MLS_blocks, BPLS_blocks, All_blocks);
+
+	//Pre-construct the global pose graph
+	Constraint_Finder cf;
+	vector<Constraint> All_cons, ALS_inner_strip_cons_all, MLS_adjacent_cons, BPLS_adjacent_cons, registration_cons;
+	cf.batch_find_multisource_constranits(ALS_strip_blocks, TLS_blocks, MLS_blocks, BPLS_blocks, All_blocks, ALS_inner_strip_cons_all, MLS_adjacent_cons, BPLS_adjacent_cons, registration_cons, All_cons, project_parameters.Overlap_Registration_KNN, project_parameters.Overlap_Registration_OverlapRatio);
+	t1 = clock();
+	LOG(INFO) << "Pose graph pre-construction done in " << float(t1 - t0) / CLOCKS_PER_SEC << " s.";
+
+	//Display the bounding box graph and the pose graph. Click "X" on the right-top corner to move on.
+	cout << "Ready to display ..." << endl;
+	io.display2Dboxes(All_blocks);
+	LOG(INFO) << "Display the bounding box graph!";
+	io.display2Dcons(All_cons);
+	LOG(INFO) << "Display the pose graph!";
+
+	//Accomplish the pairwise point cloud block(station) registration according to the global pose graph
+	t2 = clock();
+	cout << "Begin Overlapping Registration ..." << endl;
+	CRegistration<pcl::PointXYZ> reg;
+	int all_cons_number_pre = All_cons.size();
+	int reg_cons_number_pre = registration_cons.size();
+	int removed_cons_number = 0;
+	int reg_cons_number_post;
+
+	for (int i = all_cons_number_pre - reg_cons_number_pre; i < all_cons_number_pre; i++) // For all the registration cons
+	{
+		//Import point cloud pair
+		pcXYZPtr cloud1(new pcXYZ()), cloud2(new pcXYZ());
+		string Filename1, Filename2;
+		io.readLasCloudPairfromCon(All_cons[i], ALS_strip_files, TLS_files, MLS_files, BPLS_files, Filename1, Filename2, cloud1, cloud2);
+		//Down-sample point cloud pair
+		pcXYZPtr subcloud1(new pcXYZ()), subcloud2(new pcXYZ()), subcloud1_perturbated(new pcXYZ());
+		io.batchdownsamplepair(All_cons[i], cloud1, cloud2, subcloud1, subcloud2, project_parameters.Cloud_Registration_Downsampledis_ALS, project_parameters.Cloud_Registration_Downsampledis_TLS, project_parameters.Cloud_Registration_Downsampledis_MLS, project_parameters.Cloud_Registration_Downsampledis_BPLS);
+		//Pairwise registration using trimmed-ICP with/without perturbation
+		if (!reg.add_registration_edge(subcloud1, subcloud2, All_cons[i], project_parameters.Cloud_Registration_PerturbateValue, project_parameters.Cloud_Registration_MaxIterNumber, project_parameters.Cloud_Registration_UseReciprocalCorres, project_parameters.Cloud_Registration_UseTrimmedRejector, project_parameters.Cloud_Registration_OverlapSearchRadius, project_parameters.Cloud_Registration_CovarianceK, project_parameters.Cloud_Registration_MinOverlapForReg))
+			removed_cons_number++;
+	}
+	reg_cons_number_post = reg_cons_number_pre - removed_cons_number;
+	t3 = clock();
+	LOG(INFO) << "All the required constraint edges has been assigned with the Transformation";
+	LOG(INFO) << "Pairwise point cloud registration done in " << float(t3 - t2) / CLOCKS_PER_SEC << " s.";
+	cout << "All the required constraint edges has been assigned with the Transformation, Number is " << reg_cons_number_post << endl;
+
+	//Graph optimization
+	cout << "Waiting For the Next Step: Graph Optimization" << endl;
+	GlobalOptimize my_go;
+	my_go.optimizePoseGraph(All_blocks, All_cons);
+	t4 = clock();
+	LOG(INFO) << "Pose graph optimization done in " << float(t4 - t3) / CLOCKS_PER_SEC << " s.";
+	LOG(INFO) << "Graph Optimization Finished, recalculate the point cloud";
+
+	//Recalculation (To be detailed)
+	t5 = clock();
+	cout << "Recalculate the point cloud" << endl;
+
+	//Output the final result;
+	cout << "Output the final result" << endl;
+	io.batchwritefinalcloud(All_blocks, ALS_strip_files, TLS_files, MLS_files, BPLS_files); //Refined point cloud results would be output in the same folder of input data.
+	t6 = clock();
+	LOG(INFO) << "Point cloud refinement result output done in " << float(t6 - t5) / CLOCKS_PER_SEC << " s.";
+	cout << "Output Finished, Check the accuracy." << endl;
+
+	google::ShutdownGoogleLogging();
+	bool endindex;
+	cin >> endindex;
+	return 1;
+}
+
+//testing code
+
+/*
+	//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×¼;
 	// Input the filename (Or just drag in) by yourself
 	string filenameA, filenameB;
 	//cout << "Input ALS Point Cloud File:" << endl;  //ALS
@@ -92,7 +184,7 @@ int main(/*int argc, char** argv*/)
 	Eigen::Matrix4f TransA2B, TransB2A;                     // Trans: TLS->TLS' for ALS (Target)   TransALS: ALS->ALS'  for TLS (Target)
 	// other parameters
 	int max_iter_num = 50;               // Maximum iteration number before convergence
-	float overlap_search_radius = 5.0;   // The search radius in meter for overlapping ratio estimation [This is a subtle parameter, ³õÖµÔ½ºÃ£¬¸ÃÖµÉèµÄÔ½Ð¡;]
+	float overlap_search_radius = 5.0;   // The search radius in meter for overlapping ratio estimation [This is a subtle parameter, ï¿½ï¿½ÖµÔ½ï¿½Ã£ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½Ô½Ð¡;]
 	int covariance_knn = 15;             // The number of neighbor points for covariance and normal calculation
 	float covariance_radius = 1.5;       //
 	float min_overlap_for_reg = 0.1;
@@ -125,139 +217,17 @@ int main(/*int argc, char** argv*/)
 		reg.icp_reg(subcloudS, subcloudT, regS, Trans, max_iter_num, use_reciprocal_correspondence, use_trimmed_rejector, overlap_search_radius,0.15);
 		break;
 	}*/
-	//reg.invTransform(TransB2A, TransA2B);                //To get the transformation from ALS to ALS' with TLS as the target
-	//reg.transformcloud(cloudA, regA, TransA2B);          //To get the transformed ALS
-	//io.writeCloudFile("Acloud_after_registration.las", regA);
-	//cout << "Write File Done..." << endl;
-	//io.displaymulti(cloudS, cloudT, regALS, "TLS[R] ALS_before[B] ALS_transformed[G]"); // Display the result. Click "X" to continue.
-	//ALS2ALS  µãµãICP 10s    µãÃæICP 15s    GICP  19s
-	//ALS2TLS  µãµãICP 25s    µãÃæICP 35s    GICP  40s
-	//TLS2TLS  µãµãICP 35s    µãÃæICP 40s    GICP  45s
-
-	
-	//Set parameters or read the parameter configuration file.        
-	ParameterList project_parameters;                                  //²ÎÊý±í½âÊÍ;
-	project_parameters.Overlap_Registration_KNN = 10;                  //½¨Á¢ÖØµþÅä×¼Ô¼ÊøµÄµãÔÆ¿é½üÁÚËÑË÷¸öÊý;
-	project_parameters.Overlap_Registration_OverlapRatio = 0.2;        //½¨Á¢ÖØµþÅä×¼Ô¼ÊøµÄµãÔÆ¿é°üÎ§ºÐ×îÐ¡ÖØµþÂÊ;
-	project_parameters.Cloud_Registration_Downsampledis_ALS = 0.6;     //ALS»úÔØµãÔÆ³éÏ¡ÌåËØ´óÐ¡(m);  //0.5 m
-	project_parameters.Cloud_Registration_Downsampledis_TLS = 0.3;     //TLSµØÃæÕ¾µãÔÆ³éÏ¡ÌåËØ´óÐ¡(m); //0.25 m
-	project_parameters.Cloud_Registration_Downsampledis_MLS = 0.3;     //MLS³µÔØµãÔÆ³éÏ¡ÌåËØ´óÐ¡(m);   //0.25 m
-	project_parameters.Cloud_Registration_Downsampledis_BPLS = 0.3;   //BPLS±³°üµãÔÆ³éÏ¡ÌåËØ´óÐ¡(m);  //0.25 m
-	project_parameters.Cloud_Registration_MaxIterNumber = 40;          //ICPÅä×¼×î´óµü´ú´ÎÊý;
-	project_parameters.Cloud_Registration_OverlapSearchRadius = 2.0;   //Trimmed-ICPÖØµþËÑË÷°ë¾¶(m);
-	project_parameters.Cloud_Registration_MinOverlapForReg = 0.3;      //Trimmed-ICPÅä×¼ÔÊÐí×îÐ¡ÖØµþÂÊ;
-	project_parameters.Cloud_Registration_UseReciprocalCorres = 0;     //Åä×¼ÊÇ·ñÊ¹ÓÃË«Ïò×î¼Ñ¶ÔÓ¦(0²»ÓÃ,1ÓÃ);
-	project_parameters.Cloud_Registration_UseTrimmedRejector = 1;      //Åä×¼ÊÇ·ñÊ¹ÓÃTrimmed²ßÂÔ(0²»ÓÃ,1ÓÃ);
-	project_parameters.Cloud_Registration_PerturbateValue = 0.5;       //Åä×¼×î´óÎ¢ÈÅÁ¿(m);
-	project_parameters.Cloud_Registration_CovarianceK = 15;            //¹ÀËã·¨ÏòÁ¿ËùÓÃÁÚÓòµãÊý;
-
-	//Timing
-	clock_t t0, t1, t2, t3, t4, t5, t6;
-
-	//Preprocessing
-	//Unify the coordinate system 
-	//geo.BLH2XYZ_WGS84() //...
-	//Divide the point cloud into blocks by time sequence
-	//io.ALS_block_by_time() //...
-
-	//Set data folder or drag in the folder
-	string ALS_folder, TLS_folder, MLS_folder, BPLS_folder;
-	ALS_folder = "I:\\Data\\¸ßËÙ¹«Â·¸ÄÀ©½¨ÏîÄ¿-Êý¾Ý\\¾Ö²¿2\\ALS"; 
-	//ALS_folder = "I:\\Data\\¸ßËÙ¹«Â·¸ÄÀ©½¨ÏîÄ¿-Êý¾Ý\\ALS\\blocks";
-	TLS_folder = "I:\\Data\\¸ßËÙ¹«Â·¸ÄÀ©½¨ÏîÄ¿-Êý¾Ý\\¾Ö²¿2\\TLS";
-	//TLS_folder = "I:\\Data\\¸ßËÙ¹«Â·¸ÄÀ©½¨ÏîÄ¿-Êý¾Ý\\TLS\\utm48-las";
-	MLS_folder = "I:\\Data\\¸ßËÙ¹«Â·¸ÄÀ©½¨ÏîÄ¿-Êý¾Ý\\¾Ö²¿2\\MLS";
-	//MLS_folder = "I:\\Data\\¸ßËÙ¹«Â·¸ÄÀ©½¨ÏîÄ¿-Êý¾Ý\\MLS\\UTM48_tran-las";
-	BPLS_folder = "I:\\Data\\¸ßËÙ¹«Â·¸ÄÀ©½¨ÏîÄ¿-Êý¾Ý\\¾Ö²¿2\\BPLS1";
-	//BPLS_folder = "I:\\Data\\¸ßËÙ¹«Â·¸ÄÀ©½¨ÏîÄ¿-Êý¾Ý\\BPLS\\UTM48_tran-las";
-	
-	//Read the point clouds' filename bounding box data 
-	t0 = clock();
-	DataIo <pcl::PointXYZ> io;
-	vector<vector<string>> ALS_strip_files;
-	vector<string> TLS_files, MLS_files, BPLS_files;
-	io.batchReadMultiSourceFileNamesInDataFolders(ALS_folder, TLS_folder, MLS_folder, BPLS_folder, ALS_strip_files, TLS_files, MLS_files, BPLS_files);
-	
-	//Read the point clouds' bounding box data 
-	vector<vector<CloudBlock>> ALS_strip_blocks(ALS_strip_files.size());
-	vector<CloudBlock> TLS_blocks(TLS_files.size());
-	vector<CloudBlock> MLS_blocks(MLS_files.size());
-	vector<CloudBlock> BPLS_blocks(BPLS_files.size());
-	vector<CloudBlock> All_blocks;
-	io.batchReadMultiSourceLasBlock(ALS_strip_files, TLS_files, MLS_files, BPLS_files, ALS_strip_blocks, TLS_blocks, MLS_blocks, BPLS_blocks, All_blocks);
-     
-	//Pre-construct the global pose graph
-	Constraint_Finder cf;
-	vector<Constraint> All_cons, ALS_inner_strip_cons_all, MLS_adjacent_cons, BPLS_adjacent_cons, registration_cons;
-	cf.batch_find_multisource_constranits(ALS_strip_blocks, TLS_blocks, MLS_blocks, BPLS_blocks, All_blocks, ALS_inner_strip_cons_all, MLS_adjacent_cons, BPLS_adjacent_cons, registration_cons, All_cons, project_parameters.Overlap_Registration_KNN, project_parameters.Overlap_Registration_OverlapRatio);
-	t1 = clock();
-	LOG(INFO) << "Pose graph pre-construction done in "<< float(t1 - t0) / CLOCKS_PER_SEC << " s.";
-	
-	//Display the bounding box graph and the pose graph. Click "X" on the right-top corner to move on.
-	cout << "Ready to display ..." << endl;
-	io.display2Dboxes(All_blocks);
-	LOG(INFO) << "Display the bounding box graph!";
-	io.display2Dcons(All_cons);
-	LOG(INFO) << "Display the pose graph!";
-	
-	//Accomplish the pairwise point cloud block(station) registration according to the global pose graph
-	t2 = clock();
-	cout << "Begin Overlapping Registration ..." << endl;
-	CRegistration <pcl::PointXYZ> reg;
-	int all_cons_number_pre = All_cons.size(); int reg_cons_number_pre = registration_cons.size();
-	int removed_cons_number = 0; int reg_cons_number_post;
-
-	for (int i = all_cons_number_pre - reg_cons_number_pre; i < all_cons_number_pre; i++) // For all the registration cons
-	{
-		//Import point cloud pair
-		pcXYZPtr cloud1(new pcXYZ()), cloud2(new pcXYZ());
-		string Filename1, Filename2;
-		io.readLasCloudPairfromCon(All_cons[i], ALS_strip_files, TLS_files, MLS_files, BPLS_files, Filename1, Filename2, cloud1, cloud2);
-		//Down-sample point cloud pair
-		pcXYZPtr subcloud1(new pcXYZ()), subcloud2(new pcXYZ()), subcloud1_perturbated(new pcXYZ());
-		io.batchdownsamplepair(All_cons[i], cloud1, cloud2, subcloud1, subcloud2, project_parameters.Cloud_Registration_Downsampledis_ALS, project_parameters.Cloud_Registration_Downsampledis_TLS, project_parameters.Cloud_Registration_Downsampledis_MLS, project_parameters.Cloud_Registration_Downsampledis_BPLS);
-		//Pairwise registration using trimmed-ICP with/without perturbation
-		if (!reg.add_registration_edge(subcloud1, subcloud2, All_cons[i], project_parameters.Cloud_Registration_PerturbateValue, project_parameters.Cloud_Registration_MaxIterNumber, project_parameters.Cloud_Registration_UseReciprocalCorres, project_parameters.Cloud_Registration_UseTrimmedRejector, project_parameters.Cloud_Registration_OverlapSearchRadius, project_parameters.Cloud_Registration_CovarianceK, project_parameters.Cloud_Registration_MinOverlapForReg)) removed_cons_number++;
-	}
-	reg_cons_number_post = reg_cons_number_pre - removed_cons_number;
-	t3 = clock();
-	LOG(INFO) << "All the required constraint edges has been assigned with the Transformation";
-	LOG(INFO) << "Pairwise point cloud registration done in " << float(t3 - t2) / CLOCKS_PER_SEC << " s.";
-	cout << "All the required constraint edges has been assigned with the Transformation, Number is " << reg_cons_number_post << endl;
-	
-	//Graph optimization
-	cout << "Waiting For the Next Step: Graph Optimization" << endl;
-	GlobalOptimize my_go;
-	my_go.optimizePoseGraph(All_blocks,All_cons);
-	t4 = clock();
-	LOG(INFO) << "Pose graph optimization done in " << float(t4 - t3) / CLOCKS_PER_SEC << " s.";
-	LOG(INFO) << "Graph Optimization Finished, recalculate the point cloud";
-	
-	//Recalculation (To be detailed)
-	t5 = clock();
-	cout << "Recalculate the point cloud"<<endl;
-	
-	//Output the final result;
-	cout << "Output the final result" << endl;
-	io.batchwritefinalcloud(All_blocks, ALS_strip_files, TLS_files, MLS_files, BPLS_files); //Refined point cloud results would be output in the same folder of input data.
-	t6 = clock();
-	LOG(INFO) << "Point cloud refinement result output done in " << float(t6 - t5) / CLOCKS_PER_SEC << " s.";
-	cout << "Output Finished, Check the accuracy." << endl;
-	
-
-    google::ShutdownGoogleLogging();
-    bool endindex;
-    cin >> endindex;
-    return 1;
-}
-
-
-
-
-//·ÏÆú²âÊÔ´úÂë;
+//reg.invTransform(TransB2A, TransA2B);                //To get the transformation from ALS to ALS' with TLS as the target
+//reg.transformcloud(cloudA, regA, TransA2B);          //To get the transformed ALS
+//io.writeCloudFile("Acloud_after_registration.las", regA);
+//cout << "Write File Done..." << endl;
+//io.displaymulti(cloudS, cloudT, regALS, "TLS[R] ALS_before[B] ALS_transformed[G]"); // Display the result. Click "X" to continue.
+//ALS2ALS  ï¿½ï¿½ï¿½ICP 10s    ï¿½ï¿½ï¿½ï¿½ICP 15s    GICP  19s
+//ALS2TLS  ï¿½ï¿½ï¿½ICP 25s    ï¿½ï¿½ï¿½ï¿½ICP 35s    GICP  40s
+//TLS2TLS  ï¿½ï¿½ï¿½ICP 35s    ï¿½ï¿½ï¿½ï¿½ICP 40s    GICP  45s
 
 /*
-//¾«¶È¼ìºË£¬ÇóRMSE; (Ô­15cm×óÓÒ);
+//ï¿½ï¿½ï¿½È¼ï¿½Ë£ï¿½ï¿½ï¿½RMSE; (Ô­15cmï¿½ï¿½ï¿½ï¿½);
 DataIo <pcl::PointXYZ> io;
 std::vector <std::vector<double>> coordinatesA;
 std::vector <std::vector<double>> coordinatesB;
@@ -268,7 +238,7 @@ RMSE = io.cal_cor_RMSE(coordinatesA, coordinatesB);
 */
 
 /*
-//¸ßË¹Í¶Ó°×ªUTMÍ¶Ó°;
+//ï¿½ï¿½Ë¹Í¶Ó°×ªUTMÍ¶Ó°;
 string foldername;
 cout << "Input Folder Name" << endl;
 cin >> foldername;
@@ -285,7 +255,7 @@ for (int i = 0; i < filenames.size(); i++)
 */
 
 /*
-//µãÔÆ×ø±êÕûÌå±ä»»;
+//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ä»»;
 string foldername;
 cout << "Input Folder Name" << endl;
 cin >> foldername;
@@ -303,7 +273,7 @@ for (int i = 0; i < filenames.size(); i++)
 */
 
 /*
-//µãÔÆ×ø±êÕûÌåÆ½ÒÆ;
+//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ½ï¿½ï¿½;
 string foldername;
 cout << "Input Folder Name" << endl;
 cin >> foldername;
@@ -325,7 +295,7 @@ for (int i = 0; i < filenames.size(); i++)
 */
 
 /*
-//7&4²ÎÊý×ø±ê×ª»»;
+//7&4ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½;
 DataIo <pcl::PointXYZ> io;
 std::vector <std::vector<double>> coordinatesA;
 std::vector <std::vector<double>> coordinatesB;
@@ -341,7 +311,7 @@ io.XYZ_7DOFCSTran(transpara);
 */
 
 /*
-//×ø±êÏµÍ¶Ó°±ä»»;
+//ï¿½ï¿½ï¿½ï¿½ÏµÍ¶Ó°ï¿½ä»»;
 cout << "Processing the engineering coordinate system" << endl;
 float center_long_eng;
 cout << "Please enter the projection center longitude" << endl;
@@ -354,12 +324,12 @@ io.tran_wgs2eng(center_long_eng,proj_surface_h_eng);
 */
 
 /*
-//µãÔÆÊ±Ðò·Ö¿é;
+//ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Ö¿ï¿½;
 cout << "Please make sure all the ALS, MLS and BPLS point clouds are divided into blocks." << endl;
 cout << "If they are not divided, you can divide them now" << endl;
 float time_of_block;
 string ALS_folder;
-ALS_folder = "I:\\Data\\¸ßËÙ¹«Â·¸ÄÀ©½¨ÏîÄ¿-Êý¾Ý\\ALS\\ALS_strips"; //
+ALS_folder = "I:\\Data\\ï¿½ï¿½ï¿½Ù¹ï¿½Â·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿-ï¿½ï¿½ï¿½ï¿½\\ALS\\ALS_strips"; //
 
 cout << "Please input the time step of a block in second" << endl;
 cin >> time_of_block;
@@ -380,7 +350,7 @@ cout << "Write File Done..." << endl;
 */
 
 /*
-//µãÔÆÁ½Á½Åä×¼;
+//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×¼;
 // Input the filename (Or just drag in) by yourself
 string filenameS, filenameT;
 //cout << "Input ALS Point Cloud File:" << endl;  //ALS
@@ -424,7 +394,7 @@ pcXYZIPtr regS(new pcXYZI()), regALS(new pcXYZI());  // regS: Transformed Sub-sa
 Eigen::Matrix4f Trans, TransALS;                     // Trans: TLS->TLS' for ALS (Target)   TransALS: ALS->ALS'  for TLS (Target)
 // other parameters
 int max_iter_num = 100;               // Maximum iteration number before convergence
-float overlap_search_radius = 5.0;   // The search radius in meter for overlapping ratio estimation [This is a subtle parameter, ³õÖµÔ½ºÃ£¬¸ÃÖµÉèµÄÔ½Ð¡;]
+float overlap_search_radius = 5.0;   // The search radius in meter for overlapping ratio estimation [This is a subtle parameter, ï¿½ï¿½ÖµÔ½ï¿½Ã£ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½Ô½Ð¡;]
 int covariance_knn = 15;             // The number of neighbor points for covariance and normal calculation
 // Input Parameters
 cout << "Max iteration number is: " << endl; cin >> max_iter_num;
@@ -453,7 +423,7 @@ cout << "Write File Done..." << endl;
 */
 
 /*
-// Í¬Ãûµã×ø±ê×ª»»;
+// Í¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½;
 // For TLS test
 // Input the filename (Or just drag in) by yourself
 std::vector <std::vector<double>> coordinatesA;
@@ -489,7 +459,7 @@ cout << "Procession Done ..." << endl;
 */
 
 /*
-//ÊÖ¶¯ÍÏÈëµãÔÆÎÄ¼þ¼Ð;
+//ï¿½Ö¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½;
 //cout << "Input ALS Point Cloud (Blocks of all the strips) Folder:" << endl;
 //cin >> ALS_folder;
 //cout << "Input TLS Point Cloud Folder:" << endl;
@@ -499,4 +469,3 @@ cout << "Procession Done ..." << endl;
 //cout << "Input BPLS Point Cloud (Blocks) Folder:" << endl;
 //cin >> BPLS_folder;
 */
-
