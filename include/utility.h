@@ -132,7 +132,8 @@ enum DataType
 enum ConstraintType
 {
 	REGISTRATION,
-	ADJACENT
+	ADJACENT,
+	None
 };
 
 struct cloudblock_t
@@ -148,6 +149,10 @@ struct cloudblock_t
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
+
+typedef std::vector<cloudblock_t, Eigen::aligned_allocator<cloudblock_t>> strip;
+typedef std::vector<strip> strips;
+
 struct constraint_t
 {
 	cloudblock_t block1, block2; //Two block
@@ -157,6 +162,8 @@ struct constraint_t
 
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
+
+typedef std::vector<constraint_t, Eigen::aligned_allocator<constraint_t>> constraints;
 
 template <typename PointT>
 class CloudUtility

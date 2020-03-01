@@ -968,7 +968,7 @@ class CRegistration
 		}
 		else
 		{
-			con.con_type = 0; //non-constraint
+			con.con_type = None; //non-constraint
 			cout << "Registration Failed for cloud blocks #" << con.block1.unique_index << "  and  #" << con.block2.unique_index << endl;
 			cout << "-----------------------------------------------------------------------------" << endl;
 			LOG(INFO) << "Registration Failed for cloud blocks #" << con.block1.unique_index << "  and  #" << con.block2.unique_index;

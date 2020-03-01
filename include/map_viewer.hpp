@@ -155,7 +155,7 @@ class MapViewer
         }
     }
 
-    void display2Dcons(const vector<constraint_t> &cons)
+    void display2Dcons(const vector<constraint_t, Eigen::aligned_allocator<constraint_t>> &cons)
     {
         boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer(new pcl::visualization::PCLVisualizer("Graph Viewer"));
         viewer->setBackgroundColor(255, 255, 255);

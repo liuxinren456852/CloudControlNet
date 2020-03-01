@@ -20,7 +20,7 @@ namespace ccn{
 	class GlobalOptimize
 	{
 	public:
-		void optimizePoseGraph(vector<cloudblock_t, Eigen::aligned_allocator<cloudblock_t>> &all_blocks, vector<constraint_t> &all_cons);
+		void optimizePoseGraph(vector<cloudblock_t, Eigen::aligned_allocator<cloudblock_t>> &all_blocks, vector<constraint_t, Eigen::aligned_allocator<constraint_t>> &all_cons);
 		float determineWeight(int node0_type, int node1_type, int edge_type);
 
 	protected:
