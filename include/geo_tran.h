@@ -1,7 +1,7 @@
 #ifndef GEOTRAN_H
 #define GEOTRAN_H
 
-#include <ogr_spatialref.h>
+//#include <ogr_spatialref.h>
 //#include "cpl_conv.h"
 
 #include <vector>

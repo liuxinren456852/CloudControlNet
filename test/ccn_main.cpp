@@ -1,20 +1,22 @@
-#include "dataio.cpp"
-#include "common_reg.cpp"
-#include "cloudprocessing.cpp"
+#include "dataio.hpp"
 #include "find_constraint.h"
-#include "parameters.h"
+#include "utility.h"
+#include "filter.hpp"
+#include "map_viewer.hpp"
 #include "graph_optimizer.h"
+#include "common_reg.hpp"
 #include <glog/logging.h>
 
 using namespace std;
 using namespace ccn;
 
-int main(/*int argc, char** argv*/)
+typedef pcl::PointXYZ Point_T;
+
+int main(int argc, char** argv)
 {
 
 	cout << "!----------------------------------------------------------------------------!" << endl;
-	cout << "!                               ALS Refinement                               !" << endl;
-	cout << "!                              by Yue Pan et al.                             !" << endl;
+	cout << "!                            Cloud Control Net                               !" << endl;
 	cout << "!----------------------------------------------------------------------------!" << endl;
 
 	google::InitGoogleLogging("Mylog");
@@ -36,10 +38,10 @@ int main(/*int argc, char** argv*/)
 	float downsample_voxels_size_bpls = atof(argv[10]);
 	float registration_overlap_search_radius = atof(argv[11]);
 	float registration_min_overlap_ratio = atof(argv[12]);
-	bool registration_use_reciprocal_corres = atoi(argv[13]);
-	bool registration_use_use_trimmed_rejector = atoi(argv[14]);
-	float registration_perturbate_dis = atof(argv[15]);
-
+	float registration_perturbate_dis = atof(argv[13]);
+	bool registration_use_reciprocal_corres = atoi(argv[14]);
+	bool registration_use_use_trimmed_rejector = atoi(argv[15]);
+	
 	//Timing
 	clock_t t0, t1, t2, t3, t4, t5, t6;
 
@@ -51,79 +53,83 @@ int main(/*int argc, char** argv*/)
 
 	//Read the point clouds' filename bounding box data
 	t0 = clock();
-	DataIo<pcl::PointXYZ> io;
+	DataIo<Point_T> io;
 	vector<vector<string>> ALS_strip_files;
 	vector<string> TLS_files, MLS_files, BPLS_files;
 	io.batchReadMultiSourceFileNamesInDataFolders(ALS_folder, TLS_folder, MLS_folder, BPLS_folder, ALS_strip_files, TLS_files, MLS_files, BPLS_files);
 
 	//Read the point clouds' bounding box data
-	vector<vector<CloudBlock>> ALS_strip_blocks(ALS_strip_files.size());
-	vector<CloudBlock> TLS_blocks(TLS_files.size());
-	vector<CloudBlock> MLS_blocks(MLS_files.size());
-	vector<CloudBlock> BPLS_blocks(BPLS_files.size());
-	vector<CloudBlock> All_blocks;
+	vector<vector<cloudblock_t, Eigen::aligned_allocator<cloudblock_t>>> ALS_strip_blocks(ALS_strip_files.size());
+	vector<cloudblock_t, Eigen::aligned_allocator<cloudblock_t>> TLS_blocks(TLS_files.size());
+	vector<cloudblock_t, Eigen::aligned_allocator<cloudblock_t>> MLS_blocks(MLS_files.size());
+	vector<cloudblock_t, Eigen::aligned_allocator<cloudblock_t>> BPLS_blocks(BPLS_files.size());
+	vector<cloudblock_t, Eigen::aligned_allocator<cloudblock_t>> All_blocks;
 	io.batchReadMultiSourceLasBlock(ALS_strip_files, TLS_files, MLS_files, BPLS_files, ALS_strip_blocks, TLS_blocks, MLS_blocks, BPLS_blocks, All_blocks);
 
 	//Pre-construct the global pose graph
 	Constraint_Finder cf;
-	vector<Constraint> All_cons, ALS_inner_strip_cons_all, MLS_adjacent_cons, BPLS_adjacent_cons, registration_cons;
-	cf.batch_find_multisource_constranits(ALS_strip_blocks, TLS_blocks, MLS_blocks, BPLS_blocks, All_blocks, ALS_inner_strip_cons_all, MLS_adjacent_cons, BPLS_adjacent_cons, registration_cons, All_cons, project_parameters.Overlap_Registration_KNN, project_parameters.Overlap_Registration_OverlapRatio);
+	vector<constraint_t> All_cons, ALS_inner_strip_cons_all, MLS_adjacent_cons, BPLS_adjacent_cons, registration_cons;
+	cf.batch_find_multisource_constranits(ALS_strip_blocks, TLS_blocks, MLS_blocks, BPLS_blocks, All_blocks,
+										  ALS_inner_strip_cons_all, MLS_adjacent_cons, BPLS_adjacent_cons, registration_cons, All_cons,
+										  find_constraint_knn, find_constraint_overlap_ratio);
 	t1 = clock();
 	LOG(INFO) << "Pose graph pre-construction done in " << float(t1 - t0) / CLOCKS_PER_SEC << " s.";
 
 	//Display the bounding box graph and the pose graph. Click "X" on the right-top corner to move on.
+	MapViewer<Point_T> mviewer;
 	cout << "Ready to display ..." << endl;
-	io.display2Dboxes(All_blocks);
+	mviewer.display2Dboxes(All_blocks);
 	LOG(INFO) << "Display the bounding box graph!";
-	io.display2Dcons(All_cons);
+	mviewer.display2Dcons(All_cons);
 	LOG(INFO) << "Display the pose graph!";
 
-	//Accomplish the pairwise point cloud block(station) registration according to the global pose graph
-	t2 = clock();
-	cout << "Begin Overlapping Registration ..." << endl;
-	CRegistration<pcl::PointXYZ> reg;
-	int all_cons_number_pre = All_cons.size();
-	int reg_cons_number_pre = registration_cons.size();
-	int removed_cons_number = 0;
-	int reg_cons_number_post;
+	// //Accomplish the pairwise point cloud block(station) registration according to the global pose graph
+	// t2 = clock();
+	// cout << "Begin Overlapping Registration ..." << endl;
+	// CRegistration<Point_T> reg;
+	// int all_cons_number_pre = All_cons.size();
+	// int reg_cons_number_pre = registration_cons.size();
+	// int removed_cons_number = 0;
+	// int reg_cons_number_post;
 
-	for (int i = all_cons_number_pre - reg_cons_number_pre; i < all_cons_number_pre; i++) // For all the registration cons
-	{
-		//Import point cloud pair
-		pcXYZPtr cloud1(new pcXYZ()), cloud2(new pcXYZ());
-		string Filename1, Filename2;
-		io.readLasCloudPairfromCon(All_cons[i], ALS_strip_files, TLS_files, MLS_files, BPLS_files, Filename1, Filename2, cloud1, cloud2);
-		//Down-sample point cloud pair
-		pcXYZPtr subcloud1(new pcXYZ()), subcloud2(new pcXYZ()), subcloud1_perturbated(new pcXYZ());
-		io.batchdownsamplepair(All_cons[i], cloud1, cloud2, subcloud1, subcloud2, project_parameters.Cloud_Registration_Downsampledis_ALS, project_parameters.Cloud_Registration_Downsampledis_TLS, project_parameters.Cloud_Registration_Downsampledis_MLS, project_parameters.Cloud_Registration_Downsampledis_BPLS);
-		//Pairwise registration using trimmed-ICP with/without perturbation
-		if (!reg.add_registration_edge(subcloud1, subcloud2, All_cons[i], project_parameters.Cloud_Registration_PerturbateValue, project_parameters.Cloud_Registration_MaxIterNumber, project_parameters.Cloud_Registration_UseReciprocalCorres, project_parameters.Cloud_Registration_UseTrimmedRejector, project_parameters.Cloud_Registration_OverlapSearchRadius, project_parameters.Cloud_Registration_CovarianceK, project_parameters.Cloud_Registration_MinOverlapForReg))
-			removed_cons_number++;
-	}
-	reg_cons_number_post = reg_cons_number_pre - removed_cons_number;
-	t3 = clock();
-	LOG(INFO) << "All the required constraint edges has been assigned with the Transformation";
-	LOG(INFO) << "Pairwise point cloud registration done in " << float(t3 - t2) / CLOCKS_PER_SEC << " s.";
-	cout << "All the required constraint edges has been assigned with the Transformation, Number is " << reg_cons_number_post << endl;
+	// CFilter<Point_T> cfilter;
+	// for (int i = all_cons_number_pre - reg_cons_number_pre; i < all_cons_number_pre; i++) // For all the registration cons
+	// {
+	// 	//Import point cloud pair
+	// 	pcXYZPtr cloud1(new pcXYZ()), cloud2(new pcXYZ());
+	// 	string Filename1, Filename2;
+	// 	io.readLasCloudPairfromCon(All_cons[i], ALS_strip_files, TLS_files, MLS_files, BPLS_files, Filename1, Filename2, cloud1, cloud2);
+	// 	//Down-sample point cloud pair
+	// 	pcXYZPtr subcloud1(new pcXYZ()), subcloud2(new pcXYZ()), subcloud1_perturbated(new pcXYZ());
+	// 	cfilter.batchdownsamplepair(All_cons[i], cloud1, cloud2, subcloud1, subcloud2, project_parameters.Cloud_Registration_Downsampledis_ALS, project_parameters.Cloud_Registration_Downsampledis_TLS, project_parameters.Cloud_Registration_Downsampledis_MLS, project_parameters.Cloud_Registration_Downsampledis_BPLS);
+	// 	//Pairwise registration using trimmed-ICP with/without perturbation
+	// 	if (!reg.add_registration_edge(subcloud1, subcloud2, All_cons[i], project_parameters.Cloud_Registration_PerturbateValue, project_parameters.Cloud_Registration_MaxIterNumber, project_parameters.Cloud_Registration_UseReciprocalCorres, project_parameters.Cloud_Registration_UseTrimmedRejector, project_parameters.Cloud_Registration_OverlapSearchRadius, project_parameters.Cloud_Registration_CovarianceK, project_parameters.Cloud_Registration_MinOverlapForReg))
+	// 		removed_cons_number++;
+	// }
+	// reg_cons_number_post = reg_cons_number_pre - removed_cons_number;
+	// t3 = clock();
+	// LOG(INFO) << "All the required constraint edges has been assigned with the Transformation";
+	// LOG(INFO) << "Pairwise point cloud registration done in " << float(t3 - t2) / CLOCKS_PER_SEC << " s.";
+	// cout << "All the required constraint edges has been assigned with the Transformation, Number is " << reg_cons_number_post << endl;
 
-	//Graph optimization
-	cout << "Waiting For the Next Step: Graph Optimization" << endl;
-	GlobalOptimize my_go;
-	my_go.optimizePoseGraph(All_blocks, All_cons);
-	t4 = clock();
-	LOG(INFO) << "Pose graph optimization done in " << float(t4 - t3) / CLOCKS_PER_SEC << " s.";
-	LOG(INFO) << "Graph Optimization Finished, recalculate the point cloud";
+	// //Graph optimization
+	// cout << "Waiting For the Next Step: Graph Optimization" << endl;
+	// GlobalOptimize my_go;
+	// my_go.optimizePoseGraph(All_blocks, All_cons);
+	// t4 = clock();
+	// LOG(INFO) << "Pose graph optimization done in " << float(t4 - t3) / CLOCKS_PER_SEC << " s.";
+	// LOG(INFO) << "Graph Optimization Finished, recalculate the point cloud";
 
-	//Recalculation (To be detailed)
-	t5 = clock();
-	cout << "Recalculate the point cloud" << endl;
+	// //Recalculation (To be detailed)
+	// t5 = clock();
+	// cout << "Recalculate the point cloud" << endl;
 
-	//Output the final result;
-	cout << "Output the final result" << endl;
-	io.batchwritefinalcloud(All_blocks, ALS_strip_files, TLS_files, MLS_files, BPLS_files); //Refined point cloud results would be output in the same folder of input data.
-	t6 = clock();
-	LOG(INFO) << "Point cloud refinement result output done in " << float(t6 - t5) / CLOCKS_PER_SEC << " s.";
-	cout << "Output Finished, Check the accuracy." << endl;
+	// //Output the final result;
+	// cout << "Output the final result" << endl;
+	// io.batchwritefinalcloud(All_blocks, ALS_strip_files, TLS_files, MLS_files, BPLS_files); //Refined point cloud results would be output in the same folder of input data.
+	// t6 = clock();
+	// LOG(INFO) << "Point cloud refinement result output done in " << float(t6 - t5) / CLOCKS_PER_SEC << " s.";
+	// cout << "Output Finished, Check the accuracy." << endl;
 
 	google::ShutdownGoogleLogging();
 	bool endindex;

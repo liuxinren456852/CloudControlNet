@@ -8,23 +8,23 @@
 
 namespace ccn {
 
-	void Constraint_Finder::find_adjacent_constraint_in_strip(vector<CloudBlock> &blocks_strip, vector<Constraint> &innerstrip_cons)
+	void Constraint_Finder::find_adjacent_constraint_in_strip(vector<cloudblock_t, Eigen::aligned_allocator<cloudblock_t>> &blocks_strip, vector<constraint_t> &innerstrip_cons)
 	{
 		for (int i = 0; i < blocks_strip.size() - 1; i++)
 		{
-			Constraint con;
+			constraint_t con;
 			con.block1 = blocks_strip[i];
 			con.block2 = blocks_strip[i + 1];
-			con.con_type = 1;   //Adjacent
+			con.con_type = ADJACENT;   //Adjacent
 			innerstrip_cons.push_back(con);
 		}
 	}
 
-	void Constraint_Finder::find_strip_adjacent_constraint(vector<vector<CloudBlock>> &blocks_all, vector<Constraint> &innerstrip_cons_all)
+	void Constraint_Finder::find_strip_adjacent_constraint(vector<vector<cloudblock_t, Eigen::aligned_allocator<cloudblock_t>>> &blocks_all, vector<constraint_t> &innerstrip_cons_all)
 	{
 		for (int i = 0; i < blocks_all.size(); i++)
 		{
-			vector<Constraint> innerstrip_cons;
+			vector<constraint_t> innerstrip_cons;
 			find_adjacent_constraint_in_strip(blocks_all[i], innerstrip_cons);
 			for (int j = 0; j < innerstrip_cons.size(); j++)
 			{
@@ -35,7 +35,7 @@ namespace ccn {
 	}
 
 
-	void Constraint_Finder::find_overlap_registration_constraint(vector<CloudBlock> &blocks, vector<Constraint> &registration_cons_all, int k_search_neighbor, double min_iou)
+	void Constraint_Finder::find_overlap_registration_constraint(vector<cloudblock_t, Eigen::aligned_allocator<cloudblock_t>> &blocks, vector<constraint_t> &registration_cons_all, int k_search_neighbor, double min_iou)
 	{
 		pcl::PointCloud<pcl::PointXY>::Ptr cp_cloud(new pcl::PointCloud<pcl::PointXY>());
 
@@ -63,16 +63,16 @@ namespace ccn {
 
 			for (int j = 0; j < pointIdx.size(); j++)
 			{
-				//Ð§ÂÊ¿ÉÌáÉý;
+				//Ð§ï¿½Ê¿ï¿½ï¿½ï¿½ï¿½ï¿½;
 				double iou = calculate_iou(blocks[i].bound, blocks[pointIdx[j]].bound);
 				bool is_adjacent = judge_adjacent(blocks[i], blocks[pointIdx[j]]);
 
 				if ((pointIdx[j] > i) && (iou > min_iou) && (!is_adjacent))
 				{
-					Constraint registration_con;
+					constraint_t registration_con;
 					registration_con.block1 = blocks[i];
 					registration_con.block2 = blocks[pointIdx[j]];
-					registration_con.con_type = 2; //Registration
+					registration_con.con_type = REGISTRATION; //Registration
 
 					registration_cons_all.push_back(registration_con);
 				}
@@ -80,7 +80,7 @@ namespace ccn {
 		}
 	}
 
-	bool Constraint_Finder::judge_adjacent(CloudBlock & block1, CloudBlock & block2)
+	bool Constraint_Finder::judge_adjacent(cloudblock_t & block1, cloudblock_t & block2)
 	{
 		bool is_adjacent = false;
 		if (block1.data_type == block2.data_type && block1.strip_num == block2.strip_num)
@@ -114,8 +114,8 @@ namespace ccn {
 		return iou;
 	}
 
-	void Constraint_Finder::batch_find_multisource_constranits(std::vector<std::vector<CloudBlock>> &ALS_strip_blocks, std::vector<CloudBlock> &TLS_blocks, std::vector<CloudBlock> &MLS_blocks, std::vector<CloudBlock> &BPLS_blocks, std::vector<CloudBlock> &All_blocks,
-		std::vector<Constraint> &ALS_inner_strip_cons_all, std::vector<Constraint> &MLS_adjacent_cons, std::vector<Constraint> &BPLS_adjacent_cons, std::vector<Constraint> &registration_cons, std::vector<Constraint> &All_cons,
+	void Constraint_Finder::batch_find_multisource_constranits(std::vector<std::vector<cloudblock_t, Eigen::aligned_allocator<cloudblock_t>>> &ALS_strip_blocks, std::vector<cloudblock_t, Eigen::aligned_allocator<cloudblock_t>> &TLS_blocks, std::vector<cloudblock_t, Eigen::aligned_allocator<cloudblock_t>> &MLS_blocks, std::vector<cloudblock_t, Eigen::aligned_allocator<cloudblock_t>> &BPLS_blocks, std::vector<cloudblock_t, Eigen::aligned_allocator<cloudblock_t>> &All_blocks,
+		std::vector<constraint_t> &ALS_inner_strip_cons_all, std::vector<constraint_t> &MLS_adjacent_cons, std::vector<constraint_t> &BPLS_adjacent_cons, std::vector<constraint_t> &registration_cons, std::vector<constraint_t> &All_cons,
 		int overlap_Registration_KNN, float overlap_Registration_OverlapRatio)
 	{
 		int adjacent_cons_num;

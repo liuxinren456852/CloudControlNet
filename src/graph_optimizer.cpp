@@ -7,7 +7,7 @@ using namespace std;
 namespace ccn
 {
 
-	void GlobalOptimize::optimizePoseGraph(vector<CloudBlock> &all_blocks, vector<Constraint> &all_cons)
+	void GlobalOptimize::optimizePoseGraph(vector<cloudblock_t, Eigen::aligned_allocator<cloudblock_t>> &all_blocks, vector<constraint_t> &all_cons)
 	{
 		//1.Create the optimizer, determine the optimization method such as KM
 		//2.Assign value to the nodes(initial value to unknown parameters), fixed the datum
