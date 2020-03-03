@@ -113,23 +113,23 @@ int main(int argc, char **argv)
 	cout << "All the required constraint edges has been assigned with the Transformation, Number is " << reg_cons_number_post << endl;
 
 	// //Graph optimization
-	// cout << "Waiting For the Next Step: Graph Optimization" << endl;
-	// GlobalOptimize my_go;
-	// my_go.optimizePoseGraph(All_blocks, All_cons);
-	// t4 = clock();
-	// LOG(INFO) << "Pose graph optimization done in " << float(t4 - t3) / CLOCKS_PER_SEC << " s.";
-	// LOG(INFO) << "Graph Optimization Finished, recalculate the point cloud";
+	cout << "Waiting For the Next Step: Graph Optimization" << endl;
+	GlobalOptimize my_go;
+	my_go.optimizePoseGraph(All_blocks, All_cons);
+	t4 = clock();
+	LOG(INFO) << "Pose graph optimization done in " << float(t4 - t3) / CLOCKS_PER_SEC << " s.";
+	LOG(INFO) << "Graph Optimization Finished, recalculate the point cloud";
 
 	// //Recalculation (To be detailed)
-	// t5 = clock();
-	// cout << "Recalculate the point cloud" << endl;
+	t5 = clock();
+	cout << "Recalculate the point cloud" << endl;
 
-	// //Output the final result;
-	// cout << "Output the final result" << endl;
-	// io.batchwritefinalcloud(All_blocks, ALS_strip_files, TLS_files, MLS_files, BPLS_files); //Refined point cloud results would be output in the same folder of input data.
-	// t6 = clock();
-	// LOG(INFO) << "Point cloud refinement result output done in " << float(t6 - t5) / CLOCKS_PER_SEC << " s.";
-	// cout << "Output Finished, Check the accuracy." << endl;
+	//Output the final result;
+	cout << "Output the final result" << endl;
+	io.batchwritefinalcloud(All_blocks, ALS_strip_files, TLS_files, MLS_files, BPLS_files); //Refined point cloud results would be output in the same folder of input data.
+	t6 = clock();
+	LOG(INFO) << "Point cloud refinement result output done in " << float(t6 - t5) / CLOCKS_PER_SEC << " s.";
+	cout << "Output Finished, Check the accuracy." << endl;
 
 	google::ShutdownGoogleLogging();
 	bool endindex;
@@ -138,6 +138,12 @@ int main(int argc, char **argv)
 }
 
 //testing code
+
+//TO DO
+//1.improve the registration efficieny
+//2.assign weight according to the posterior covariance matrix 
+//3.robust iterative least square
+
 
 /*
 	//����������׼;

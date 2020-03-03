@@ -436,10 +436,12 @@ class DataIo : public CloudUtility<PointT>
                 pt.SetCoordinates(double(pointCloud->points[i].x) - global_shift[0], double(pointCloud->points[i].y) - global_shift[1], double(pointCloud->points[i].z) - global_shift[2]);
 
                 bool intensity_available = pcl::traits::has_field<PointT, pcl::fields::intensity>::value;
-                if (intensity_available)
-                {
-                    pt.SetIntensity(pointCloud->points[i].intensity);
-                }
+                
+                // figure out why this cannot be used properly.
+                // if (intensity_available)
+                // {
+                //     pt.SetIntensity(pointCloud->points[i].intensity);
+                // }
 
                 //If the Point template PointT is without RGB, you should comment the line.
                 //liblas::Color lasColor;
