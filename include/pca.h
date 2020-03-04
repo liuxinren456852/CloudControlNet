@@ -161,9 +161,9 @@ namespace ccn
 				features[i].ptId = i;
 				features[i].ptNum = search_indices.size();
 				CalculatePcaFeature(inputPointCloud, search_indices, features[i]);
-				// inputPointCloud->points[i].normal_x =  features[i].vectors.normalDirection.x();
-				// inputPointCloud->points[i].normal_y =  features[i].vectors.normalDirection.y();
-				// inputPointCloud->points[i].normal_z =  features[i].vectors.normalDirection.z();
+				inputPointCloud->points[i].normal_x =  features[i].vectors.normalDirection.x();
+				inputPointCloud->points[i].normal_y =  features[i].vectors.normalDirection.y();
+				inputPointCloud->points[i].normal_z =  features[i].vectors.normalDirection.z();
 			}
 			//});
 

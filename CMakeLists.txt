@@ -70,7 +70,8 @@ SET(DEP_LIBS ${DEP_LIBS} glog::glog /usr/local/lib/libproj.so g2o_core g2o_stuff
 add_executable(ccn ${PROJECT_SOURCE_DIR}/test/ccn_main.cpp ${SRC_LIST})
 target_link_libraries(ccn ${DEP_LIBS})
 
-
+add_executable(test_reg ${PROJECT_SOURCE_DIR}/test/test_reg.cpp ${SRC_LIST})
+target_link_libraries(test_reg ${DEP_LIBS})
 
 
 

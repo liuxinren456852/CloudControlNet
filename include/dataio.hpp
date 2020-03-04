@@ -208,11 +208,11 @@ class DataIo : public CloudUtility<PointT>
 
             //------------------------------------------------Assign Intensity--------------------------------------------------//
             //If the Point template PointT has intensity, you can assign the intensity with any feature of the point cloud in las.
-            bool intensity_available = pcl::traits::has_field<PointT, pcl::fields::intensity>::value;
-            if (intensity_available)
-            {
-                pt.intensity = p.GetIntensity();
-            }
+            // bool intensity_available = pcl::traits::has_field<PointT, pcl::fields::intensity>::value;
+            // if (intensity_available)
+            // {
+            //     pt.intensity = p.GetIntensity();
+            // }
 
             //pt.intensity = p.GetIntensity();
             //pt.intensity = p.GetTime();
@@ -261,11 +261,11 @@ class DataIo : public CloudUtility<PointT>
             {
                 pt.SetCoordinates(double(pointCloud->points[i].x), double(pointCloud->points[i].y), double(pointCloud->points[i].z));
 
-                bool intensity_available = pcl::traits::has_field<PointT, pcl::fields::intensity>::value;
-                if (intensity_available)
-                {
-                    pt.SetIntensity(pointCloud->points[i].intensity);
-                }
+                // bool intensity_available = pcl::traits::has_field<PointT, pcl::fields::intensity>::value;
+                // if (intensity_available)
+                // {
+                //     pt.SetIntensity(pointCloud->points[i].intensity);
+                // }
 
                 //If the Point template PointT is without RGB, you should comment the line.
                 //liblas::Color lasColor;
