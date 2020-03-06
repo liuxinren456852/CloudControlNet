@@ -324,7 +324,221 @@ class MapViewer
             boost::this_thread::sleep(boost::posix_time::microseconds(100000));
         }
     }
-};
+
+    void DispalyFeaturePoint(cloudblock_t &in_block, bool is_downsampled, std::string displayname)
+    {
+        boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer(new pcl::visualization::PCLVisualizer(displayname));
+
+        viewer->setBackgroundColor(0, 0, 0);
+        char t[256];
+        std::string s;
+        int n = 0;
+
+        // float line_size, sphere_size;
+        // line_size = 2.5;
+        // sphere_size = 0.6;
+
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr feature_frame(new pcl::PointCloud<pcl::PointXYZRGB>);
+
+        if (is_downsampled)
+        {
+            for (int i = 0; i < in_block.pc_ground_down->points.size(); ++i)
+            {
+                pcl::PointXYZRGB pt;
+
+                pt.x = in_block.pc_ground_down->points[i].x;
+                pt.y = in_block.pc_ground_down->points[i].y;
+                pt.z = in_block.pc_ground_down->points[i].z;
+
+                pt.r = 233;
+                pt.g = 233;
+                pt.b = 216;
+                //Ground - Silver
+                feature_frame->points.push_back(pt);
+            }
+
+            for (int i = 0; i < in_block.pc_pillar_down->points.size(); ++i)
+            {
+                pcl::PointXYZRGB pt;
+
+                pt.x = in_block.pc_pillar_down->points[i].x;
+                pt.y = in_block.pc_pillar_down->points[i].y;
+                pt.z = in_block.pc_pillar_down->points[i].z;
+
+                pt.r = 0;
+                pt.g = 255;
+                pt.b = 0;
+                //Pillar - Green
+                feature_frame->points.push_back(pt);
+            }
+
+            for (int i = 0; i < in_block.pc_beam_down->points.size(); ++i)
+            {
+                pcl::PointXYZRGB pt;
+
+                pt.x = in_block.pc_beam_down->points[i].x;
+                pt.y = in_block.pc_beam_down->points[i].y;
+                pt.z = in_block.pc_beam_down->points[i].z;
+
+                pt.r = 255;
+                pt.g = 255;
+                pt.b = 0;
+                //Beam - Yellow
+                feature_frame->points.push_back(pt);
+            }
+
+            for (int i = 0; i < in_block.pc_facade_down->points.size(); ++i)
+            {
+                pcl::PointXYZRGB pt;
+
+                pt.x = in_block.pc_facade_down->points[i].x;
+                pt.y = in_block.pc_facade_down->points[i].y;
+                pt.z = in_block.pc_facade_down->points[i].z;
+
+                pt.r = 0;
+                pt.g = 0;
+                pt.b = 255;
+                //Facade - Blue
+                feature_frame->points.push_back(pt);
+            }
+
+            for (int i = 0; i < in_block.pc_roof_down->points.size(); ++i)
+            {
+                pcl::PointXYZRGB pt;
+
+                pt.x = in_block.pc_roof_down->points[i].x;
+                pt.y = in_block.pc_roof_down->points[i].y;
+                pt.z = in_block.pc_roof_down->points[i].z;
+
+                pt.r = 255;
+                pt.g = 0;
+                pt.b = 0;
+                //Roof - Red
+                feature_frame->points.push_back(pt);
+            }
+
+            for (int i = 0; i < in_block.pc_vertex->points.size(); ++i)
+            {
+                pcl::PointXYZRGB pt;
+
+                pt.x = in_block.pc_vertex->points[i].x;
+                pt.y = in_block.pc_vertex->points[i].y;
+                pt.z = in_block.pc_vertex->points[i].z;
+
+                pt.r = 255;
+                pt.g = 0;
+                pt.b = 255;
+                //Vertex - Purple
+                feature_frame->points.push_back(pt);
+            }
+        }
+        else
+        {
+
+            for (int i = 0; i < in_block.pc_ground->points.size(); ++i)
+            {
+                pcl::PointXYZRGB pt;
+
+                pt.x = in_block.pc_ground->points[i].x;
+                pt.y = in_block.pc_ground->points[i].y;
+                pt.z = in_block.pc_ground->points[i].z;
+
+                pt.r = 233;
+                pt.g = 233;
+                pt.b = 216;
+                //Ground - Silver
+                feature_frame->points.push_back(pt);
+            }
+
+            for (int i = 0; i < in_block.pc_pillar->points.size(); ++i)
+            {
+                pcl::PointXYZRGB pt;
+
+                pt.x = in_block.pc_pillar->points[i].x;
+                pt.y = in_block.pc_pillar->points[i].y;
+                pt.z = in_block.pc_pillar->points[i].z;
+
+                pt.r = 0;
+                pt.g = 255;
+                pt.b = 0;
+                //Pillar - Green
+                feature_frame->points.push_back(pt);
+            }
+
+            for (int i = 0; i < in_block.pc_beam->points.size(); ++i)
+            {
+                pcl::PointXYZRGB pt;
+
+                pt.x = in_block.pc_beam->points[i].x;
+                pt.y = in_block.pc_beam->points[i].y;
+                pt.z = in_block.pc_beam->points[i].z;
+
+                pt.r = 255;
+                pt.g = 255;
+                pt.b = 0;
+                //Beam - Yellow
+                feature_frame->points.push_back(pt);
+            }
+
+            for (int i = 0; i < in_block.pc_facade->points.size(); ++i)
+            {
+                pcl::PointXYZRGB pt;
+
+                pt.x = in_block.pc_facade->points[i].x;
+                pt.y = in_block.pc_facade->points[i].y;
+                pt.z = in_block.pc_facade->points[i].z;
+
+                pt.r = 0;
+                pt.g = 0;
+                pt.b = 255;
+                //Facade - Blue
+                feature_frame->points.push_back(pt);
+            }
+
+            for (int i = 0; i < in_block.pc_roof->points.size(); ++i)
+            {
+                pcl::PointXYZRGB pt;
+
+                pt.x = in_block.pc_roof->points[i].x;
+                pt.y = in_block.pc_roof->points[i].y;
+                pt.z = in_block.pc_roof->points[i].z;
+
+                pt.r = 255;
+                pt.g = 0;
+                pt.b = 0;
+                //Roof - Red
+                feature_frame->points.push_back(pt);
+            }
+
+            for (int i = 0; i < in_block.pc_vertex->points.size(); ++i)
+            {
+                pcl::PointXYZRGB pt;
+
+                pt.x = in_block.pc_vertex->points[i].x;
+                pt.y = in_block.pc_vertex->points[i].y;
+                pt.z = in_block.pc_vertex->points[i].z;
+
+                pt.r = 255;
+                pt.g = 0;
+                pt.b = 255;
+                //Vertex - Purple
+                feature_frame->points.push_back(pt);
+            }
+        }
+
+        sprintf(t, "%d", n);
+        s = t;
+        viewer->addPointCloud(feature_frame, s);
+        n++;
+
+        cout << "Click X(close) to continue..." << endl;
+        while (!viewer->wasStopped())
+        {
+            viewer->spinOnce(100);
+            boost::this_thread::sleep(boost::posix_time::microseconds(100000));
+        }
+    }
+}; // namespace ccn
 } // namespace ccn
 
 #endif //_INCLUDE_MAP_VIEWER_HPP

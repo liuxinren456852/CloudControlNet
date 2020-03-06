@@ -27,6 +27,12 @@
 using namespace std;
 
 //TypeDef
+
+typedef pcl::PointNormal Point_T; // May change this
+
+typedef pcl::PointCloud<Point_T>::Ptr pcTPtr;
+typedef pcl::PointCloud<Point_T> pcT;
+
 typedef pcl::PointCloud<pcl::PointXYZI>::Ptr pcXYZIPtr;
 typedef pcl::PointCloud<pcl::PointXYZI> pcXYZI;
 
@@ -42,8 +48,8 @@ typedef pcl::PointCloud<pcl::PointXYZRGB> pcXYZRGB;
 typedef pcl::PointCloud<pcl::PointXYZRGBA>::Ptr pcXYZRGBAPtr;
 typedef pcl::PointCloud<pcl::PointXYZRGBA> pcXYZRGBA;
 
-typedef pcl::PointCloud<pcl::Normal>::Ptr NormalsPtr;
-typedef pcl::PointCloud<pcl::Normal> Normals;
+typedef pcl::PointCloud<pcl::PointNormal>::Ptr pcXYZNPtr;
+typedef pcl::PointCloud<pcl::PointNormal> pcXYZN;
 
 typedef pcl::PointCloud<pcl::PointXYZINormal>::Ptr pcXYZINPtr;
 typedef pcl::PointCloud<pcl::PointXYZINormal> pcXYZIN;
@@ -51,22 +57,25 @@ typedef pcl::PointCloud<pcl::PointXYZINormal> pcXYZIN;
 typedef pcl::PointCloud<pcl::FPFHSignature33>::Ptr fpfhFeaturePtr;
 typedef pcl::PointCloud<pcl::FPFHSignature33> fpfhFeature;
 
+typedef Eigen::Matrix<float, 6, 1> Vector6f;
+typedef Eigen::Matrix<float, 6, 6> Matrix6f;
+
 namespace ccn
 {
 
-struct CenterPoint
+struct centerpoint_t
 {
 	double x;
 	double y;
 	double z;
-	CenterPoint(double x = 0, double y = 0, double z = 0) : x(x), y(y), z(z)
+	centerpoint_t(double x = 0, double y = 0, double z = 0) : x(x), y(y), z(z)
 	{
 		z = 0.0;
 		x = y = 0.0;
 	}
 };
 
-struct Bounds
+struct bounds_t
 {
 	double min_x;
 	double min_y;
@@ -74,7 +83,7 @@ struct Bounds
 	double max_x;
 	double max_y;
 	double max_z;
-	Bounds()
+	bounds_t()
 	{
 		min_x = min_y = min_z = max_x = max_y = max_z = 0.0;
 	}
@@ -142,22 +151,76 @@ struct cloudblock_t
 	int strip_num;					//Strip ID
 	int num_in_strip;				//ID in the strip
 	DataType data_type;				//Datatype
-	Bounds bound;					//Bounding Box
-	CenterPoint cp;					//Center Point
+	bounds_t bound;					//Bounding Box
+	centerpoint_t cp;				//Center Point
 	Eigen::Matrix4f optimized_pose; //Transformation Matrix after optimization
+
+	std::string filename;
+
+	//Raw point cloud
+	pcTPtr pc_raw;
+
+	//Downsampled point cloud
+	pcTPtr pc_down;
+
+	//unground point cloud
+	pcTPtr pc_unground;
+
+	// All kinds of geometric feature points
+	pcTPtr pc_ground;
+	pcTPtr pc_facade;
+	pcTPtr pc_roof;
+	pcTPtr pc_pillar;
+	pcTPtr pc_beam;
+	pcTPtr pc_vertex;
+
+	pcTPtr pc_ground_down;
+	pcTPtr pc_facade_down;
+	pcTPtr pc_roof_down;
+	pcTPtr pc_pillar_down;
+	pcTPtr pc_beam_down;
+
+	cloudblock_t()
+	{
+		init();
+		free_raw_cloud();
+	}
+
+	void init()
+	{
+		pc_ground = pcTPtr(new pcT);
+		pc_facade = pcTPtr(new pcT);
+		pc_roof = pcTPtr(new pcT);
+		pc_pillar = pcTPtr(new pcT);
+		pc_beam = pcTPtr(new pcT);
+		pc_vertex = pcTPtr(new pcT);
+
+		pc_ground_down = pcTPtr(new pcT);
+		pc_facade_down = pcTPtr(new pcT);
+		pc_roof_down = pcTPtr(new pcT);
+		pc_pillar_down = pcTPtr(new pcT);
+		pc_beam_down = pcTPtr(new pcT);
+	}
+
+	void free_raw_cloud()
+	{
+		pc_raw = pcTPtr(new pcT);
+		pc_down = pcTPtr(new pcT);
+		pc_unground = pcTPtr(new pcT);
+	}
 
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
-
 
 typedef std::vector<cloudblock_t, Eigen::aligned_allocator<cloudblock_t>> strip;
 typedef std::vector<strip> strips;
 
 struct constraint_t
 {
-	cloudblock_t block1, block2; //Two block
+	cloudblock_t block1, block2; //Two block  //Target: block1,  Source: block2
 	ConstraintType con_type;	 //ConstraintType
 	Eigen::Matrix4f Trans1_2 = Eigen::Matrix4f::Identity(4, 4);
+	Eigen::Matrix<float, 6, 6> information_matrix;
 	float confidence;
 
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -170,7 +233,7 @@ class CloudUtility
 {
   public:
 	//Get Center of a Point Cloud
-	void getCloudCenterPoint(const typename pcl::PointCloud<PointT> &cloud, CenterPoint &centerPoint)
+	void getCloudcenterpoint_t(const typename pcl::PointCloud<PointT> &cloud, centerpoint_t &centerpoint_t)
 	{
 		double cx = 0, cy = 0, cz = 0;
 
@@ -180,13 +243,13 @@ class CloudUtility
 			cy += cloud.points[i].y / cloud.size();
 			cz += cloud.points[i].z / cloud.size();
 		}
-		centerPoint.x = cx;
-		centerPoint.y = cy;
-		centerPoint.z = cz;
+		centerpoint_t.x = cx;
+		centerpoint_t.y = cy;
+		centerpoint_t.z = cz;
 	}
 
 	//Get Bound of a Point Cloud
-	void getCloudBound(const typename pcl::PointCloud<PointT> &cloud, Bounds &bound)
+	void getCloudBound(const typename pcl::PointCloud<PointT> &cloud, bounds_t &bound)
 	{
 		double min_x = cloud[0].x;
 		double min_y = cloud[0].y;
@@ -219,14 +282,14 @@ class CloudUtility
 	}
 
 	//Get Bound and Center of a Point Cloud
-	void getBoundAndCenter(const typename pcl::PointCloud<PointT> &cloud, Bounds &bound, CenterPoint &centerPoint)
+	void getBoundAndCenter(const typename pcl::PointCloud<PointT> &cloud, bounds_t &bound, centerpoint_t &centerpoint_t)
 	{
-		getCloudCenterPoint(cloud, centerPoint);
+		getCloudcenterpoint_t(cloud, centerpoint_t);
 		getCloudBound(cloud, bound);
 	}
 
 	//Get Bound of Subsets of a Point Cloud
-	void GetSubsetBoundary(typename pcl::PointCloud<PointT>::Ptr &cloud, vector<int> &index, Bounds &bound)
+	void GetSubsetBoundary(typename pcl::PointCloud<PointT>::Ptr &cloud, vector<int> &index, bounds_t &bound)
 	{
 		typename pcl::PointCloud<PointT>::Ptr temp_cloud(new pcl::PointCloud<PointT>);
 		for (int i = 0; i < index.size(); i++)

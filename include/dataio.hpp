@@ -33,7 +33,7 @@ template <typename PointT>
 class DataIo : public CloudUtility<PointT>
 {
   public:
-    bool readCloudFile(const std::string &fileName, const typename pcl::PointCloud<PointT>::Ptr &pointCloud)
+    bool readCloudFile(const std::string &fileName, typename pcl::PointCloud<PointT>::Ptr &pointCloud)
     {
         std::string extension;
         extension = fileName.substr(fileName.find_last_of('.') + 1); //Get the suffix of the file;
@@ -79,6 +79,8 @@ class DataIo : public CloudUtility<PointT>
         }
 
         std::cout << "Data loaded (" << pointCloud->points.size() << " points)" << std::endl;
+
+        return 1;
     }
 
     bool writeCloudFile(const std::string &fileName, const typename pcl::PointCloud<PointT>::Ptr &pointCloud)
@@ -170,7 +172,7 @@ class DataIo : public CloudUtility<PointT>
         return 1;
     }
 
-    bool readLasFile(const std::string &fileName, const typename pcl::PointCloud<PointT>::Ptr &pointCloud) //Without translation
+    bool readLasFile(const std::string &fileName, typename pcl::PointCloud<PointT>::Ptr &pointCloud) //Without translation
     {
         //cout << "A global translation or gravitization should be done to keep the precision of point cloud when adopting pcl to do las file point cloud processing" << endl;
 
@@ -237,7 +239,7 @@ class DataIo : public CloudUtility<PointT>
     bool writeLasFile(const std::string &fileName, const typename pcl::PointCloud<PointT>::Ptr &pointCloud) //Without translation
     {
 
-        Bounds bound;
+        bounds_t bound;
         this->getCloudBound(*pointCloud, bound);
 
         std::ofstream ofs;
@@ -282,7 +284,7 @@ class DataIo : public CloudUtility<PointT>
         return 1;
     }
 
-    bool readLasFile(const std::string &fileName, const typename pcl::PointCloud<PointT>::Ptr &pointCloud, bool automatic_shift_or_not) //With translation
+    bool readLasFile(const std::string &fileName, typename pcl::PointCloud<PointT>::Ptr &pointCloud, bool automatic_shift_or_not) //With translation
     {
         global_shift.resize(3);
         //std::cout << "A global translation or gravitization should be done to keep the precision of point cloud when adopting pcl to do las file point cloud processing" << endl;
@@ -386,7 +388,7 @@ class DataIo : public CloudUtility<PointT>
     {
         global_shift.resize(3);
 
-        Bounds bound;
+        bounds_t bound;
         this->getCloudBound(*pointCloud, bound);
 
         if (!automatic_shift_or_not)
@@ -436,7 +438,7 @@ class DataIo : public CloudUtility<PointT>
                 pt.SetCoordinates(double(pointCloud->points[i].x) - global_shift[0], double(pointCloud->points[i].y) - global_shift[1], double(pointCloud->points[i].z) - global_shift[2]);
 
                 bool intensity_available = pcl::traits::has_field<PointT, pcl::fields::intensity>::value;
-                
+
                 // figure out why this cannot be used properly.
                 // if (intensity_available)
                 // {
@@ -811,7 +813,7 @@ class DataIo : public CloudUtility<PointT>
 
         for (int j = 0; j < cloudblock_ts.size(); j++)
         {
-            Bounds bound;
+            bounds_t bound;
             getCloudBound(cloudblock_ts[j], bound);
 
             liblas::Color lasColor;
@@ -1334,6 +1336,9 @@ class DataIo : public CloudUtility<PointT>
         liblas::Reader reader = f.CreateWithStream(ifs);
         liblas::Header const &header = reader.GetHeader();
 
+        //Filename
+        block.filename = fileName;
+
         //Data Type
         block.data_type = data_type_;
 
@@ -1420,6 +1425,14 @@ class DataIo : public CloudUtility<PointT>
         cout << "MLS: " << MLS_files.size() << " blocks" << endl;
         cout << "BPLS: " << BPLS_files.size() << " blocks" << endl;
         cout << "!----------------------------------------------------------------------------!" << endl;
+    }
+
+    bool readCloudBlockPointCloud(cloudblock_t &in_block)
+    {
+        if (readCloudFile(in_block.filename, in_block.pc_raw))
+            return 1;
+        else
+            return 0;
     }
 
     bool lasfileGK2UTM(const string &fileName)

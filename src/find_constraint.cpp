@@ -63,7 +63,7 @@ namespace ccn {
 
 			for (int j = 0; j < pointIdx.size(); j++)
 			{
-				//Ч�ʿ�����;
+				
 				double iou = calculate_iou(blocks[i].bound, blocks[pointIdx[j]].bound);
 				bool is_adjacent = judge_adjacent(blocks[i], blocks[pointIdx[j]]);
 
@@ -93,7 +93,7 @@ namespace ccn {
 		return is_adjacent;
 	}
 
-	double Constraint_Finder::calculate_iou(Bounds & bound1, Bounds & bound2)
+	double Constraint_Finder::calculate_iou(bounds_t & bound1, bounds_t & bound2)
 	{
 		double area1 = (bound1.max_x - bound1.min_x) * (bound1.max_y - bound1.min_y);
 		double area2 = (bound2.max_x - bound2.min_x) * (bound2.max_y - bound2.min_y);

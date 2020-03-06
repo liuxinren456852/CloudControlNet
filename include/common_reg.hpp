@@ -16,7 +16,7 @@
 #include <pcl/features/from_meshes.h>
 #include <pcl/features/fpfh.h>
 #include <pcl/features/fpfh_omp.h>
-#include <pcl/features/normal_3d_omp.h> 
+#include <pcl/features/normal_3d_omp.h>
 #include <pcl/registration/correspondence_estimation.h>
 #include <pcl/registration/correspondence_estimation_normal_shooting.h>
 #include <pcl/registration/correspondence_rejection_features.h>
@@ -30,7 +30,6 @@
 #include <pcl/registration/transformation_estimation_point_to_plane_weighted.h>
 #include <pcl/registration/transformation_estimation_point_to_plane.h>
 #include <pcl/registration/ia_ransac.h>
-
 
 #include <glog/logging.h>
 
@@ -532,135 +531,6 @@ class CRegistration
 		return mae_nn;
 	}
 
-	//Feature points Point-to-Plane ICP Estimated by LLS
-	bool feature_pts_registration(const typename pcl::PointCloud<PointT>::Ptr &Source_Ground, const typename pcl::PointCloud<PointT>::Ptr &Source_Edge,
-								  const typename pcl::PointCloud<PointT>::Ptr &Source_Planar, const typename pcl::PointCloud<PointT>::Ptr &Source_Sphere,
-								  const typename pcl::PointCloud<PointT>::Ptr &Target_Ground, const typename pcl::PointCloud<PointT>::Ptr &Target_Edge,
-								  const typename pcl::PointCloud<PointT>::Ptr &Target_Planar, const typename pcl::PointCloud<PointT>::Ptr &Target_Sphere,
-								  Eigen::Matrix4f &transformationS2T, Eigen::Matrix<float, 6, 6> &information_matrix,
-								  int max_iter_num, float dis_thre_ground, float dis_thre_edge, float dis_thre_planar, float dis_thre_sphere)
-	{
-		clock_t t0, t1, t2;
-
-		int K_min = 20;
-
-		t0 = clock();
-
-		//Preprocessing
-		// pcl::PointCloud<pcl::PointXYZ>::Ptr SourceCloudXYZ(new pcl::PointCloud<pcl::PointXYZ>());
-		// pcl::PointCloud<pcl::PointXYZ>::Ptr TargetCloudXYZ(new pcl::PointCloud<pcl::PointXYZ>());
-		// copyPointCloud(*SourceCloud, *SourceCloudXYZ);
-		// copyPointCloud(*TargetCloud, *TargetCloudXYZ);
-
-		t1 = clock();
-
-		transformationS2T = Eigen::Matrix4f::Identity(4, 4);
-
-		//Iteration
-		for (int i = 0; i < max_iter_num; i++)
-		{
-
-			//Estimate Correspondence
-			boost::shared_ptr<pcl::Correspondences> corrs_Ground(new pcl::Correspondences);
-			boost::shared_ptr<pcl::Correspondences> corrs_Edge(new pcl::Correspondences);
-			boost::shared_ptr<pcl::Correspondences> corrs_Planar(new pcl::Correspondences);
-			boost::shared_ptr<pcl::Correspondences> corrs_Sphere(new pcl::Correspondences);
-			boost::shared_ptr<pcl::Correspondences> corrs_Ground_f(new pcl::Correspondences);
-			boost::shared_ptr<pcl::Correspondences> corrs_Edge_f(new pcl::Correspondences);
-			boost::shared_ptr<pcl::Correspondences> corrs_Planar_f(new pcl::Correspondences);
-			boost::shared_ptr<pcl::Correspondences> corrs_Sphere_f(new pcl::Correspondences);
-
-			typename pcl::registration::CorrespondenceEstimation<PointT, PointT> corr_est;
-			pcl::registration::CorrespondenceRejectorDistance corr_rej_dist;
-
-			//For Ground points
-			if (Source_Ground->points.size() >= K_min && Target_Ground->points.size() >= K_min)
-			{
-				corr_est.setInputCloud(Source_Ground);
-				corr_est.setInputTarget(Target_Ground);
-				corr_est.determineCorrespondences(*corrs_Ground);
-				corr_rej_dist.setInputCorrespondences(corrs_Ground);
-				corr_rej_dist.setMaximumDistance(dis_thre_ground);
-				corr_rej_dist.getCorrespondences(*corrs_Ground_f);
-			}
-
-			//For Edge points
-			if (Source_Edge->points.size() >= K_min && Target_Edge->points.size() >= K_min)
-			{
-				corr_est.setInputCloud(Source_Edge);
-				corr_est.setInputTarget(Target_Edge);
-				corr_est.determineCorrespondences(*corrs_Edge);
-				corr_rej_dist.setInputCorrespondences(corrs_Edge);
-				corr_rej_dist.setMaximumDistance(dis_thre_edge);
-				corr_rej_dist.getCorrespondences(*corrs_Edge_f);
-			}
-
-			//For Planar points
-			if (Source_Planar->points.size() >= K_min && Target_Planar->points.size() >= K_min)
-			{
-				corr_est.setInputCloud(Source_Planar);
-				corr_est.setInputTarget(Target_Planar);
-				corr_est.determineCorrespondences(*corrs_Planar);
-				corr_rej_dist.setInputCorrespondences(corrs_Planar);
-				corr_rej_dist.setMaximumDistance(dis_thre_planar);
-				corr_rej_dist.getCorrespondences(*corrs_Planar_f);
-			}
-
-			//For Sphere points
-			if (Source_Sphere->points.size() >= K_min && Target_Sphere->points.size() >= K_min)
-			{
-				corr_est.setInputCloud(Source_Sphere);
-				corr_est.setInputTarget(Target_Sphere);
-				corr_est.determineCorrespondences(*corrs_Sphere);
-				corr_rej_dist.setInputCorrespondences(corrs_Sphere);
-				corr_rej_dist.setMaximumDistance(dis_thre_sphere);
-				corr_rej_dist.getCorrespondences(*corrs_Sphere_f);
-			}
-
-			dis_thre_ground /= 1.1;
-			dis_thre_edge /= 1.1;
-			dis_thre_planar /= 1.1;
-			dis_thre_sphere /= 1.1;
-
-			//if(i==max_iter_num-1)
-			printf("Found correspondences # [G:%d E:%d P:%d S:%d] \nAfter filtering # [G:%d E:%d P:%d S:%d] \n",
-				   (*corrs_Ground).size(), (*corrs_Edge).size(), (*corrs_Planar).size(), (*corrs_Sphere).size(),
-				   (*corrs_Ground_f).size(), (*corrs_Edge_f).size(), (*corrs_Planar_f).size(), (*corrs_Sphere_f).size());
-
-			//Estimate Transformation
-			Eigen::Matrix4f TempTran;
-			Multi_metrics_lls_estimation(Source_Ground, Target_Ground, corrs_Ground_f,
-										 Source_Edge, Target_Edge, corrs_Edge_f,
-										 Source_Planar, Target_Planar, corrs_Planar_f,
-										 Source_Sphere, Target_Sphere, corrs_Sphere_f,
-										 TempTran, information_matrix);
-
-			cout << "Iter: # " << i << endl
-				 << TempTran << endl;
-
-			//Update the Source pointcloud
-			pcl::transformPointCloudWithNormals(*Source_Ground, *Source_Ground, TempTran);
-			pcl::transformPointCloudWithNormals(*Source_Edge, *Source_Edge, TempTran);
-			pcl::transformPointCloudWithNormals(*Source_Planar, *Source_Planar, TempTran);
-			pcl::transformPointCloudWithNormals(*Source_Sphere, *Source_Sphere, TempTran);
-
-			//pcl::transformPointCloud(*SourceNormal, *SourceNormal, TempTran);
-
-			transformationS2T = TempTran * transformationS2T;
-		}
-
-		t2 = clock();
-
-		printf("SCloud point [G:%d E:%d P:%d S:%d] TCloud point [G:%d E:%d P:%d S:%d]\n", Source_Ground->points.size(), Source_Edge->points.size(), Source_Planar->points.size(), Source_Sphere->points.size(),
-			   Target_Ground->points.size(), Target_Edge->points.size(), Target_Planar->points.size(), Target_Sphere->points.size());
-		//cout << "SCloud point # " << SourceCloud->points.size() << " , TCloud point # "<< TargetCloud->points.size()<< endl;
-		cout << "Registration done in " << float(t2 - t0) / CLOCKS_PER_SEC << " s" << endl;
-		//cout << "Normal Estimation in " << float(t1 - t0) / CLOCKS_PER_SEC << " s, "<< "Alignment in " << float(t2 - t1) / CLOCKS_PER_SEC<< " s."<<endl;
-		cout << transformationS2T << endl;
-
-		return 1;
-	}
-
 	/**
 		* \brief Point-to-Point metric ICP
 		* \param[in]  SourceCloud : A pointer of the Source Point Cloud (Each point of it is used to find the nearest neighbor as correspondence)
@@ -1015,7 +885,7 @@ class CRegistration
 							  float search_radius)
 	{
 		// Calculate the Point Normal
-		NormalsPtr cloud_normal(new Normals);
+		pcl::PointCloud<pcl::PointNormal>::Ptr cloud_normal(new pcl::PointCloud<pcl::PointNormal>);
 		calNormal(input_cloud, cloud_normal, search_radius);
 
 		// Estimate FPFH Feature
@@ -1051,8 +921,8 @@ class CRegistration
 		sac_ia.setSourceFeatures(source_fpfh);
 		sac_ia.setInputTarget(TargetCloud);
 		sac_ia.setTargetFeatures(target_fpfh);
-		//sac_ia.setNumberOfSamples(20);       //����ÿ�ε���������ʹ�õ�������������ʡ��,�ɽ�ʡʱ��
-		sac_ia.setCorrespondenceRandomness(15); //���ü���Э����ʱѡ����ٽ��ڵ㣬��ֵԽ��Э����Խ��ȷ�����Ǽ���Ч��Խ��.(��ʡ)
+		//sac_ia.setNumberOfSamples(20);
+		sac_ia.setCorrespondenceRandomness(15);
 		sac_ia.align(*TransformedSource);
 		transformationS2T = sac_ia.getFinalTransformation();
 
@@ -1599,212 +1469,398 @@ class CRegistration
 		}
 	}
 
+	bool feature_pts_lls_icp(constraint_t &registration_cons,
+							 int max_iter_num = 20, float dis_thre_ground = 1.0, float dis_thre_facade = 1.0, float dis_thre_roof = 1.0,
+							 float dis_thre_pillar = 1.4, float dis_thre_beam = 1.4, float dis_thre_vertex = 1.7,
+							 float max_bearable_translation = 1.5, float max_bearable_rotation_d = 5.0,
+							 float converge_translation = 0.001, float converge_rotation_d = 0.01)
+	{
+		clock_t t0, t1;
+
+		int process_code = 0;
+
+		t0 = clock();
+
+		int K_min = 20;
+
+		Eigen::Matrix4f transformationS2T = Eigen::Matrix4f::Identity(4, 4);
+		Matrix6f information_matrix;
+        Eigen::Matrix4f TempTran;
+	    Vector6f transform_x;
+
+
+		float converge_rotation = converge_rotation_d / 180.0 * M_PI;
+		float max_bearable_rotation = max_bearable_rotation_d / 180.0 * M_PI;
+        
+		//Iteration
+		for (int i = 0; i < max_iter_num; i++)
+		{
+
+			//Estimate Correspondence
+			boost::shared_ptr<pcl::Correspondences> corrs_Ground(new pcl::Correspondences);
+			boost::shared_ptr<pcl::Correspondences> corrs_Pillar(new pcl::Correspondences);
+			boost::shared_ptr<pcl::Correspondences> corrs_Beam(new pcl::Correspondences);
+			boost::shared_ptr<pcl::Correspondences> corrs_Facade(new pcl::Correspondences);
+			boost::shared_ptr<pcl::Correspondences> corrs_Roof(new pcl::Correspondences);
+			boost::shared_ptr<pcl::Correspondences> corrs_Vertex(new pcl::Correspondences);
+			boost::shared_ptr<pcl::Correspondences> corrs_Ground_f(new pcl::Correspondences);
+			boost::shared_ptr<pcl::Correspondences> corrs_Pillar_f(new pcl::Correspondences);
+			boost::shared_ptr<pcl::Correspondences> corrs_Beam_f(new pcl::Correspondences);
+			boost::shared_ptr<pcl::Correspondences> corrs_Facade_f(new pcl::Correspondences);
+			boost::shared_ptr<pcl::Correspondences> corrs_Roof_f(new pcl::Correspondences);
+			boost::shared_ptr<pcl::Correspondences> corrs_Vertex_f(new pcl::Correspondences);
+
+			typename pcl::registration::CorrespondenceEstimation<PointT, PointT> corr_est;
+			pcl::registration::CorrespondenceRejectorDistance corr_rej_dist;
+
+			// Target (Dense): Cloud1,  Source (Sparse): Cloud2
+
+			//For Ground points
+			if (registration_cons.block2.pc_ground_down->points.size() >= K_min &&
+				registration_cons.block1.pc_ground->points.size() >= K_min)
+				{
+					corr_est.setInputCloud(registration_cons.block2.pc_ground_down);
+					corr_est.setInputTarget(registration_cons.block1.pc_ground);
+					corr_est.determineCorrespondences(*corrs_Ground);
+					corr_rej_dist.setInputCorrespondences(corrs_Ground);
+					corr_rej_dist.setMaximumDistance(dis_thre_ground);
+					corr_rej_dist.getCorrespondences(*corrs_Ground_f);
+				}
+
+			//For Pillar points
+			if (registration_cons.block2.pc_pillar_down->points.size() >= K_min &&
+				registration_cons.block1.pc_pillar->points.size() >= K_min)
+				{
+					corr_est.setInputCloud(registration_cons.block2.pc_pillar_down);
+					corr_est.setInputTarget(registration_cons.block1.pc_pillar);
+					corr_est.determineCorrespondences(*corrs_Pillar);
+					corr_rej_dist.setInputCorrespondences(corrs_Pillar);
+					corr_rej_dist.setMaximumDistance(dis_thre_pillar);
+					corr_rej_dist.getCorrespondences(*corrs_Pillar_f);
+				}
+
+			//For Beam points
+			if (registration_cons.block2.pc_beam_down->points.size() >= K_min &&
+				registration_cons.block1.pc_beam->points.size() >= K_min)
+				{
+					corr_est.setInputCloud(registration_cons.block2.pc_beam_down);
+					corr_est.setInputTarget(registration_cons.block1.pc_beam);
+					corr_est.determineCorrespondences(*corrs_Beam);
+					corr_rej_dist.setInputCorrespondences(corrs_Beam);
+					corr_rej_dist.setMaximumDistance(dis_thre_beam);
+					corr_rej_dist.getCorrespondences(*corrs_Beam_f);
+				}
+
+			//For Facade points
+			if (registration_cons.block2.pc_facade_down->points.size() >= K_min &&
+				registration_cons.block1.pc_facade->points.size() >= K_min)
+				{
+					corr_est.setInputCloud(registration_cons.block2.pc_facade_down);
+					corr_est.setInputTarget(registration_cons.block1.pc_facade);
+					corr_est.determineCorrespondences(*corrs_Facade);
+					corr_rej_dist.setInputCorrespondences(corrs_Facade);
+					corr_rej_dist.setMaximumDistance(dis_thre_facade);
+					corr_rej_dist.getCorrespondences(*corrs_Facade_f);
+				}
+
+			//For Roof points
+			if (registration_cons.block2.pc_roof_down->points.size() >= K_min &&
+				registration_cons.block1.pc_roof->points.size() >= K_min)
+				{
+					corr_est.setInputCloud(registration_cons.block2.pc_roof_down);
+					corr_est.setInputTarget(registration_cons.block1.pc_roof);
+					corr_est.determineCorrespondences(*corrs_Roof);
+					corr_rej_dist.setInputCorrespondences(corrs_Roof);
+					corr_rej_dist.setMaximumDistance(dis_thre_roof);
+					corr_rej_dist.getCorrespondences(*corrs_Roof_f);
+				}
+
+			//For Vertex points
+			if (registration_cons.block2.pc_vertex->points.size() >= K_min &&
+				registration_cons.block1.pc_vertex->points.size() >= K_min)
+				{
+					corr_est.setInputCloud(registration_cons.block2.pc_vertex);
+					corr_est.setInputTarget(registration_cons.block1.pc_vertex);
+					corr_est.determineCorrespondences(*corrs_Vertex);
+					corr_rej_dist.setInputCorrespondences(corrs_Vertex);
+					corr_rej_dist.setMaximumDistance(dis_thre_vertex);
+					corr_rej_dist.getCorrespondences(*corrs_Vertex_f);
+				}
+
+			dis_thre_ground = max_(dis_thre_ground / 1.05, 0.3);
+			dis_thre_facade = max_(dis_thre_facade / 1.05, 0.3);
+			dis_thre_roof = max_(dis_thre_roof / 1.05, 0.3);
+			dis_thre_pillar = max_(dis_thre_pillar / 1.05, 0.42);
+			dis_thre_beam = max_(dis_thre_beam / 1.05, 0.42);
+			dis_thre_vertex = max_(dis_thre_vertex / 1.05, 0.5);
+
+			LOG(INFO) << "Used correspondences # [G: " << (*corrs_Ground_f).size() << " P: " << (*corrs_Pillar_f).size() << " B: " << (*corrs_Beam_f).size()
+					  << " F: " << (*corrs_Facade_f).size() << " R: " << (*corrs_Roof_f).size() << " V: " << (*corrs_Vertex_f).size() << " ].";
+
+			//Estimate Transformation
+			
+			Multi_metrics_lls_estimation(registration_cons.block2.pc_ground_down, registration_cons.block1.pc_ground, corrs_Ground_f,
+										 registration_cons.block2.pc_pillar_down, registration_cons.block1.pc_pillar, corrs_Pillar_f,
+										 registration_cons.block2.pc_beam_down, registration_cons.block1.pc_beam, corrs_Beam_f,
+										 registration_cons.block2.pc_facade_down, registration_cons.block1.pc_facade, corrs_Facade_f,
+										 registration_cons.block2.pc_roof_down, registration_cons.block1.pc_roof, corrs_Roof_f,
+										 registration_cons.block2.pc_vertex, registration_cons.block1.pc_vertex, corrs_Vertex_f,
+										 transform_x, information_matrix);
+
+			if (transform_x(0) > max_bearable_translation || transform_x(1) > max_bearable_translation || transform_x(2) > max_bearable_translation ||
+				transform_x(3) > max_bearable_rotation || transform_x(4) > max_bearable_rotation || transform_x(5) > max_bearable_rotation)
+			{
+				process_code = -1;
+				LOG(WARNING) << "Too large translation or rotation for one iteration";
+				break;
+			}
+
+			//Judge converged or not
+			if (i == max_iter_num - 1 || (i > 2 && transform_x(0) < converge_translation && transform_x(1) < converge_translation && transform_x(2) < converge_translation &&
+										  transform_x(3) < converge_rotation && transform_x(4) < converge_rotation && transform_x(5) < converge_rotation))
+			{
+				process_code = 1;
+				LOG(INFO) << "Converged. Break out.";
+
+				//Calculate converged residual and information matrix
+				double sigma2;
+				Multi_metrics_lls_residual(registration_cons.block2.pc_ground_down, registration_cons.block1.pc_ground, corrs_Ground_f,
+										   registration_cons.block2.pc_pillar_down, registration_cons.block1.pc_pillar, corrs_Pillar_f,
+										   registration_cons.block2.pc_beam_down, registration_cons.block1.pc_beam, corrs_Beam_f,
+										   registration_cons.block2.pc_facade_down, registration_cons.block1.pc_facade, corrs_Facade_f,
+										   registration_cons.block2.pc_roof_down, registration_cons.block1.pc_roof, corrs_Roof_f,
+										   registration_cons.block2.pc_vertex, registration_cons.block1.pc_vertex, corrs_Vertex_f,
+										   transform_x, sigma2);
+				information_matrix = (1.0 / sigma2) * information_matrix;
+
+				// Construct the transformation matrix from x
+				constructTransformation(transform_x(0), transform_x(1), transform_x(2), transform_x(3), transform_x(4), transform_x(5), TempTran);
+
+				LOG(INFO) << "Iter: # " << i << endl
+						  << TempTran << endl;
+
+				break; //OUT
+			}
+
+			constructTransformation(transform_x(0), transform_x(1), transform_x(2), transform_x(3), transform_x(4), transform_x(5), TempTran);
+
+			LOG(INFO) << "Transformation of Iter: # " << i << endl
+					  << TempTran << endl;
+
+			//Update the Source pointcloud
+			pcl::transformPointCloudWithNormals(*registration_cons.block2.pc_ground_down, *registration_cons.block2.pc_ground_down, TempTran);
+			pcl::transformPointCloudWithNormals(*registration_cons.block2.pc_pillar_down, *registration_cons.block2.pc_pillar_down, TempTran);
+			pcl::transformPointCloudWithNormals(*registration_cons.block2.pc_beam_down, *registration_cons.block2.pc_beam_down, TempTran);
+			pcl::transformPointCloudWithNormals(*registration_cons.block2.pc_facade_down, *registration_cons.block2.pc_facade_down, TempTran);
+			pcl::transformPointCloudWithNormals(*registration_cons.block2.pc_roof_down, *registration_cons.block2.pc_roof_down, TempTran);
+			pcl::transformPointCloudWithNormals(*registration_cons.block2.pc_vertex, *registration_cons.block2.pc_vertex, TempTran);
+
+			transformationS2T = TempTran * transformationS2T;
+		}
+
+		//Resume the original source point cloud (from the cloud of the one before the last iteration to the original cloud)
+		Eigen::Matrix4f transformationT2S = transformationS2T.inverse();
+		pcl::transformPointCloudWithNormals(*registration_cons.block2.pc_ground_down, *registration_cons.block2.pc_ground_down, transformationT2S);
+		pcl::transformPointCloudWithNormals(*registration_cons.block2.pc_pillar_down, *registration_cons.block2.pc_pillar_down, transformationT2S);
+		pcl::transformPointCloudWithNormals(*registration_cons.block2.pc_beam_down, *registration_cons.block2.pc_beam_down, transformationT2S);
+		pcl::transformPointCloudWithNormals(*registration_cons.block2.pc_facade_down, *registration_cons.block2.pc_facade_down, transformationT2S);
+		pcl::transformPointCloudWithNormals(*registration_cons.block2.pc_roof_down, *registration_cons.block2.pc_roof_down, transformationT2S);
+		pcl::transformPointCloudWithNormals(*registration_cons.block2.pc_vertex, *registration_cons.block2.pc_vertex, transformationT2S);
+
+		transformationS2T = TempTran * transformationS2T; //Update the last iteration's transformation
+
+		registration_cons.Trans1_2 = transformationS2T; //Final transformation
+
+		registration_cons.information_matrix = information_matrix; //Final information matrix
+
+		t1 = clock();
+
+		LOG(INFO) << "Registration done in " << float(t1 - t0) / CLOCKS_PER_SEC << " s";
+		LOG(INFO) << "Final tran. matrix:" <<endl
+				  << registration_cons.Trans1_2;
+
+		return process_code;
+	}
+
   protected:
   private:
-	bool Multi_metrics_lls_estimation(const typename pcl::PointCloud<PointT>::Ptr &Source_Ground, const typename pcl::PointCloud<PointT>::Ptr &Target_Ground, boost::shared_ptr<pcl::Correspondences> &Corr_Ground,
-									  const typename pcl::PointCloud<PointT>::Ptr &Source_Edge, const typename pcl::PointCloud<PointT>::Ptr &Target_Edge, boost::shared_ptr<pcl::Correspondences> &Corr_Edge,
-									  const typename pcl::PointCloud<PointT>::Ptr &Source_Planar, const typename pcl::PointCloud<PointT>::Ptr &Target_Planar, boost::shared_ptr<pcl::Correspondences> &Corr_Planar,
-									  const typename pcl::PointCloud<PointT>::Ptr &Source_Sphere, const typename pcl::PointCloud<PointT>::Ptr &Target_Sphere, boost::shared_ptr<pcl::Correspondences> &Corr_Sphere,
-									  Eigen::Matrix4f &transformationS2T, Eigen::Matrix<float, 6, 6> &information_matrix)
+	bool pt2pt_lls_summation(const typename pcl::PointCloud<PointT>::Ptr &Source_Cloud, const typename pcl::PointCloud<PointT>::Ptr &Target_Cloud,
+							 boost::shared_ptr<pcl::Correspondences> &Corr, Matrix6f &ATA, Vector6f &ATb, float weight)
 	{
-		typedef Eigen::Matrix<float, 6, 1> Vector6f;
-		typedef Eigen::Matrix<float, 6, 6> Matrix6f;
-
-		Matrix6f ATA;
-		Vector6f ATb;
-		ATA.setZero();
-		ATb.setZero();
-
-		float w_ground, w_planar, w_edge_x, w_edge_y, w_edge_z, w_sphere;
-		w_ground = 3.0;
-		w_planar = 2.4;
-		//  w_edge_x=1.0;
-		//  w_edge_y=1.0;
-		//  w_edge_z=0.5;
-		w_sphere = 0.25;
-
-		//Ground to Ground (Plane to Plane)
-		for (int i = 0; i < (*Corr_Ground).size(); i++)
+		for (int i = 0; i < (*Corr).size(); i++)
 		{
 			int s_index, t_index;
-			s_index = (*Corr_Ground)[i].index_query;
-			t_index = (*Corr_Ground)[i].index_match;
+			s_index = (*Corr)[i].index_query;
+			t_index = (*Corr)[i].index_match;
 
 			if (t_index != -1)
 			{
-				float px = Source_Ground->points[s_index].x;
-				float py = Source_Ground->points[s_index].y;
-				float pz = Source_Ground->points[s_index].z;
-				float qx = Target_Ground->points[t_index].x;
-				float qy = Target_Ground->points[t_index].y;
-				float qz = Target_Ground->points[t_index].z;
-				float ntx = Target_Ground->points[t_index].normal[0];
-				float nty = Target_Ground->points[t_index].normal[1];
-				float ntz = Target_Ground->points[t_index].normal[2];
-				float w = w_ground;
-
-				float a = ntz * py - nty * pz;
-				float b = ntx * pz - ntz * px;
-				float c = nty * px - ntx * py;
-
-				//    0  1  2  3  4  5
-				//    6  7  8  9 10 11
-				//   12 13 14 15 16 17
-				//   18 19 20 21 22 23
-				//   24 25 26 27 28 29
-				//   30 31 32 33 34 35
-
-				ATA.coeffRef(0) += w * ntx * ntx;
-				ATA.coeffRef(1) += w * ntx * nty;
-				ATA.coeffRef(2) += w * ntx * ntz;
-				ATA.coeffRef(3) += w * a * ntx;
-				ATA.coeffRef(4) += w * b * ntx;
-				ATA.coeffRef(5) += w * c * ntx;
-				ATA.coeffRef(7) += w * nty * nty;
-				ATA.coeffRef(8) += w * nty * ntz;
-				ATA.coeffRef(9) += w * a * nty;
-				ATA.coeffRef(10) += w * b * nty;
-				ATA.coeffRef(11) += w * c * nty;
-				ATA.coeffRef(14) += w * ntz * ntz;
-				ATA.coeffRef(15) += w * a * ntz;
-				ATA.coeffRef(16) += w * b * ntz;
-				ATA.coeffRef(17) += w * c * ntz;
-				ATA.coeffRef(21) += w * a * a;
-				ATA.coeffRef(22) += w * a * b;
-				ATA.coeffRef(23) += w * a * c;
-				ATA.coeffRef(28) += w * b * b;
-				ATA.coeffRef(29) += w * b * c;
-				ATA.coeffRef(35) += w * c * c;
-
-				float d = ntx * qx + nty * qy + ntz * qz - ntx * px - nty * py - ntz * pz;
-
-				ATb.coeffRef(0) += w * d * ntx;
-				ATb.coeffRef(1) += w * d * nty;
-				ATb.coeffRef(2) += w * d * ntz;
-				ATb.coeffRef(3) += w * d * a;
-				ATb.coeffRef(4) += w * d * b;
-				ATb.coeffRef(5) += w * d * c;
-			}
-		}
-
-		//Planar to Planar (Plane to Plane)
-		for (int i = 0; i < (*Corr_Planar).size(); i++)
-		{
-			int s_index, t_index;
-			s_index = (*Corr_Planar)[i].index_query;
-			t_index = (*Corr_Planar)[i].index_match;
-
-			if (t_index != -1)
-			{
-				float px = Source_Planar->points[s_index].x;
-				float py = Source_Planar->points[s_index].y;
-				float pz = Source_Planar->points[s_index].z;
-				float qx = Target_Planar->points[t_index].x;
-				float qy = Target_Planar->points[t_index].y;
-				float qz = Target_Planar->points[t_index].z;
-				float ntx = Target_Planar->points[t_index].normal[0];
-				float nty = Target_Planar->points[t_index].normal[1];
-				float ntz = Target_Planar->points[t_index].normal[2];
-				float w = w_planar;
-
-				float a = ntz * py - nty * pz;
-				float b = ntx * pz - ntz * px;
-				float c = nty * px - ntx * py;
-
-				//    0  1  2  3  4  5
-				//    6  7  8  9 10 11
-				//   12 13 14 15 16 17
-				//   18 19 20 21 22 23
-				//   24 25 26 27 28 29
-				//   30 31 32 33 34 35
-
-				ATA.coeffRef(0) += w * ntx * ntx;
-				ATA.coeffRef(1) += w * ntx * nty;
-				ATA.coeffRef(2) += w * ntx * ntz;
-				ATA.coeffRef(3) += w * a * ntx;
-				ATA.coeffRef(4) += w * b * ntx;
-				ATA.coeffRef(5) += w * c * ntx;
-				ATA.coeffRef(7) += w * nty * nty;
-				ATA.coeffRef(8) += w * nty * ntz;
-				ATA.coeffRef(9) += w * a * nty;
-				ATA.coeffRef(10) += w * b * nty;
-				ATA.coeffRef(11) += w * c * nty;
-				ATA.coeffRef(14) += w * ntz * ntz;
-				ATA.coeffRef(15) += w * a * ntz;
-				ATA.coeffRef(16) += w * b * ntz;
-				ATA.coeffRef(17) += w * c * ntz;
-				ATA.coeffRef(21) += w * a * a;
-				ATA.coeffRef(22) += w * a * b;
-				ATA.coeffRef(23) += w * a * c;
-				ATA.coeffRef(28) += w * b * b;
-				ATA.coeffRef(29) += w * b * c;
-				ATA.coeffRef(35) += w * c * c;
-
-				float d = ntx * qx + nty * qy + ntz * qz - ntx * px - nty * py - ntz * pz;
-
-				ATb.coeffRef(0) += w * d * ntx;
-				ATb.coeffRef(1) += w * d * nty;
-				ATb.coeffRef(2) += w * d * ntz;
-				ATb.coeffRef(3) += w * d * a;
-				ATb.coeffRef(4) += w * d * b;
-				ATb.coeffRef(5) += w * d * c;
-			}
-		}
-
-		//Edge to Edge (Line to Line)
-		for (int i = 0; i < (*Corr_Edge).size(); i++)
-		{
-			int s_index, t_index;
-			s_index = (*Corr_Edge)[i].index_query;
-			t_index = (*Corr_Edge)[i].index_match;
-
-			if (t_index != -1)
-			{
-				float px = Source_Edge->points[s_index].x;
-				float py = Source_Edge->points[s_index].y;
-				float pz = Source_Edge->points[s_index].z;
-				float qx = Target_Edge->points[t_index].x;
-				float qy = Target_Edge->points[t_index].y;
-				float qz = Target_Edge->points[t_index].z;
-				float ntx = Target_Edge->points[t_index].normal[0];
-				float nty = Target_Edge->points[t_index].normal[1];
-				float ntz = Target_Edge->points[t_index].normal[2];
-				float nsx = Source_Edge->points[s_index].normal[0];
-				float nsy = Source_Edge->points[s_index].normal[1];
-				float nsz = Source_Edge->points[s_index].normal[2];
-
-				float wx, wy, wz;
+				float px = Source_Cloud->points[s_index].x;
+				float py = Source_Cloud->points[s_index].y;
+				float pz = Source_Cloud->points[s_index].z;
+				float qx = Target_Cloud->points[t_index].x;
+				float qy = Target_Cloud->points[t_index].y;
+				float qz = Target_Cloud->points[t_index].z;
+				float wx = weight;
+				float wy = weight;
+				float wz = weight;
 
 				float dx = px - qx;
 				float dy = py - qy;
 				float dz = pz - qz;
 
-				float nx = ntx * nsz - ntz * nsy;
+				//    0  1  2  3  4  5
+				//    6  7  8  9 10 11
+				//   12 13 14 15 16 17
+				//   18 19 20 21 22 23
+				//   24 25 26 27 28 29
+				//   30 31 32 33 34 35
+
+				ATA.coeffRef(0) += wx;
+				ATA.coeffRef(1) += 0;
+				ATA.coeffRef(2) += 0;
+				ATA.coeffRef(3) += 0;
+				ATA.coeffRef(4) += wx * pz;
+				ATA.coeffRef(5) += (-wx * py);
+				ATA.coeffRef(7) += wy;
+				ATA.coeffRef(8) += 0;
+				ATA.coeffRef(9) += (-wy * pz);
+				ATA.coeffRef(10) += 0;
+				ATA.coeffRef(11) += wy * px;
+				ATA.coeffRef(14) += wz;
+				ATA.coeffRef(15) += wz * py;
+				ATA.coeffRef(16) += (-wz * px);
+				ATA.coeffRef(17) += 0;
+				ATA.coeffRef(21) += wy * pz * pz + wz * py * py;
+				ATA.coeffRef(22) += (-wz * px * py);
+				ATA.coeffRef(23) += (-wy * px * pz);
+				ATA.coeffRef(28) += wx * pz * pz + wz * px * px;
+				ATA.coeffRef(29) += (-wx * py * pz);
+				ATA.coeffRef(35) += wx * py * py + wy * px * px;
+
+				ATb.coeffRef(0) += (-wx * dx);
+				ATb.coeffRef(1) += (-wy * dy);
+				ATb.coeffRef(2) += (-wz * dz);
+				ATb.coeffRef(3) += wy * pz * dy - wz * py * dz;
+				ATb.coeffRef(4) += wz * px * dz - wx * pz * dx;
+				ATb.coeffRef(5) += wx * py * dx - wy * px * dy;
+			}
+		}
+
+		return 1;
+	}
+
+	bool pt2pl_lls_summation(const typename pcl::PointCloud<PointT>::Ptr &Source_Cloud, const typename pcl::PointCloud<PointT>::Ptr &Target_Cloud,
+							 boost::shared_ptr<pcl::Correspondences> &Corr, Matrix6f &ATA, Vector6f &ATb, float weight)
+	{
+		for (int i = 0; i < (*Corr).size(); i++)
+		{
+			int s_index, t_index;
+			s_index = (*Corr)[i].index_query;
+			t_index = (*Corr)[i].index_match;
+
+			if (t_index != -1)
+			{
+				float px = Source_Cloud->points[s_index].x;
+				float py = Source_Cloud->points[s_index].y;
+				float pz = Source_Cloud->points[s_index].z;
+				float qx = Target_Cloud->points[t_index].x;
+				float qy = Target_Cloud->points[t_index].y;
+				float qz = Target_Cloud->points[t_index].z;
+				float ntx = Target_Cloud->points[t_index].normal[0];
+				float nty = Target_Cloud->points[t_index].normal[1];
+				float ntz = Target_Cloud->points[t_index].normal[2];
+				float w = weight;
+
+				float a = ntz * py - nty * pz;
+				float b = ntx * pz - ntz * px;
+				float c = nty * px - ntx * py;
+
+				//    0  1  2  3  4  5
+				//    6  7  8  9 10 11
+				//   12 13 14 15 16 17
+				//   18 19 20 21 22 23
+				//   24 25 26 27 28 29
+				//   30 31 32 33 34 35
+
+				ATA.coeffRef(0) += w * ntx * ntx;
+				ATA.coeffRef(1) += w * ntx * nty;
+				ATA.coeffRef(2) += w * ntx * ntz;
+				ATA.coeffRef(3) += w * a * ntx;
+				ATA.coeffRef(4) += w * b * ntx;
+				ATA.coeffRef(5) += w * c * ntx;
+				ATA.coeffRef(7) += w * nty * nty;
+				ATA.coeffRef(8) += w * nty * ntz;
+				ATA.coeffRef(9) += w * a * nty;
+				ATA.coeffRef(10) += w * b * nty;
+				ATA.coeffRef(11) += w * c * nty;
+				ATA.coeffRef(14) += w * ntz * ntz;
+				ATA.coeffRef(15) += w * a * ntz;
+				ATA.coeffRef(16) += w * b * ntz;
+				ATA.coeffRef(17) += w * c * ntz;
+				ATA.coeffRef(21) += w * a * a;
+				ATA.coeffRef(22) += w * a * b;
+				ATA.coeffRef(23) += w * a * c;
+				ATA.coeffRef(28) += w * b * b;
+				ATA.coeffRef(29) += w * b * c;
+				ATA.coeffRef(35) += w * c * c;
+
+				float d = ntx * qx + nty * qy + ntz * qz - ntx * px - nty * py - ntz * pz;
+
+				ATb.coeffRef(0) += w * d * ntx;
+				ATb.coeffRef(1) += w * d * nty;
+				ATb.coeffRef(2) += w * d * ntz;
+				ATb.coeffRef(3) += w * d * a;
+				ATb.coeffRef(4) += w * d * b;
+				ATb.coeffRef(5) += w * d * c;
+			}
+		}
+
+		return 1;
+	}
+
+	bool pt2li_lls_summation(const typename pcl::PointCloud<PointT>::Ptr &Source_Cloud, const typename pcl::PointCloud<PointT>::Ptr &Target_Cloud,
+							 boost::shared_ptr<pcl::Correspondences> &Corr, Matrix6f &ATA, Vector6f &ATb, float weight)
+	{
+		for (int i = 0; i < (*Corr).size(); i++)
+		{
+			int s_index, t_index;
+			s_index = (*Corr)[i].index_query;
+			t_index = (*Corr)[i].index_match;
+
+			if (t_index != -1)
+			{
+				float px = Source_Cloud->points[s_index].x;
+				float py = Source_Cloud->points[s_index].y;
+				float pz = Source_Cloud->points[s_index].z;
+				float qx = Target_Cloud->points[t_index].x;
+				float qy = Target_Cloud->points[t_index].y;
+				float qz = Target_Cloud->points[t_index].z;
+				float ntx = Target_Cloud->points[t_index].normal[0];
+				float nty = Target_Cloud->points[t_index].normal[1];
+				float ntz = Target_Cloud->points[t_index].normal[2];
+				float nsx = Source_Cloud->points[s_index].normal[0];
+				float nsy = Source_Cloud->points[s_index].normal[1];
+				float nsz = Source_Cloud->points[s_index].normal[2];
+
+				float wx, wy, wz;
+
+				wx = weight;
+				wy = weight;
+				wz = weight;
+
+				float dx = px - qx;
+				float dy = py - qy;
+				float dz = pz - qz;
+
+				// norm (nt * ns)
+				float nx = nty * nsz - ntz * nsy;
 				float ny = ntz * nsx - ntx * nsz;
 				float nz = ntx * nsy - nty * nsx;
 				float nd = sqrt(nx * nx + ny * ny + nz * nz);
 				nx /= nd;
 				ny /= nd;
-				nz /= nd;
-
-				if (nz > 0.7)
-				{
-					wx = 1.0;
-					wy = 1.0;
-					wz = 0.25;
-				}
-				else if (nz < 0.3)
-				{
-					wx = 0.5;
-					wy = 0.5;
-					wz = 0.75;
-				}
-				else
-				{
-					wx = 0.1;
-					wy = 0.1;
-					wz = 0.1;
-				}
+				nz /= nd; //normalize
 
 				double nxy = nx * ny;
 				double nxz = nx * nz;
@@ -1857,67 +1913,44 @@ class CRegistration
 			}
 		}
 
-		//Sphere to Sphere (Point to Point)
-		for (int i = 0; i < (*Corr_Sphere).size(); i++)
-		{
-			int s_index, t_index;
-			s_index = (*Corr_Sphere)[i].index_query;
-			t_index = (*Corr_Sphere)[i].index_match;
+		return 1;
+	}
 
-			if (t_index != -1)
-			{
-				float px = Source_Sphere->points[s_index].x;
-				float py = Source_Sphere->points[s_index].y;
-				float pz = Source_Sphere->points[s_index].z;
-				float qx = Target_Sphere->points[t_index].x;
-				float qy = Target_Sphere->points[t_index].y;
-				float qz = Target_Sphere->points[t_index].z;
-				float wx = w_sphere;
-				float wy = w_sphere;
-				float wz = w_sphere;
+	bool Multi_metrics_lls_estimation(const typename pcl::PointCloud<PointT>::Ptr &Source_Ground, const typename pcl::PointCloud<PointT>::Ptr &Target_Ground, boost::shared_ptr<pcl::Correspondences> &Corr_Ground,
+									  const typename pcl::PointCloud<PointT>::Ptr &Source_Pillar, const typename pcl::PointCloud<PointT>::Ptr &Target_Pillar, boost::shared_ptr<pcl::Correspondences> &Corr_Pillar,
+									  const typename pcl::PointCloud<PointT>::Ptr &Source_Beam, const typename pcl::PointCloud<PointT>::Ptr &Target_Beam, boost::shared_ptr<pcl::Correspondences> &Corr_Beam,
+									  const typename pcl::PointCloud<PointT>::Ptr &Source_Facade, const typename pcl::PointCloud<PointT>::Ptr &Target_Facade, boost::shared_ptr<pcl::Correspondences> &Corr_Facade,
+									  const typename pcl::PointCloud<PointT>::Ptr &Source_Roof, const typename pcl::PointCloud<PointT>::Ptr &Target_Roof, boost::shared_ptr<pcl::Correspondences> &Corr_Roof,
+									  const typename pcl::PointCloud<PointT>::Ptr &Source_Vertex, const typename pcl::PointCloud<PointT>::Ptr &Target_Vertex, boost::shared_ptr<pcl::Correspondences> &Corr_Vertex,
+									  Vector6f &unknown_x, Matrix6f &information_matrix)
+	{
+		Matrix6f ATA;
+		Vector6f ATb;
+		ATA.setZero();
+		ATb.setZero();
 
-				float dx = px - qx;
-				float dy = py - qy;
-				float dz = pz - qz;
+		float w_ground, w_facade, w_roof, w_pillar, w_beam, w_vertex;
 
-				//    0  1  2  3  4  5
-				//    6  7  8  9 10 11
-				//   12 13 14 15 16 17
-				//   18 19 20 21 22 23
-				//   24 25 26 27 28 29
-				//   30 31 32 33 34 35
+		//point 3dof large weight
+		//line 2dof medium weight
+		//plane 1dof small weight
+		//focus more on horizontal error than verticle error
 
-				ATA.coeffRef(0) += wx;
-				ATA.coeffRef(1) += 0;
-				ATA.coeffRef(2) += 0;
-				ATA.coeffRef(3) += 0;
-				ATA.coeffRef(4) += wx * pz;
-				ATA.coeffRef(5) += (-wx * py);
-				ATA.coeffRef(7) += wy;
-				ATA.coeffRef(8) += 0;
-				ATA.coeffRef(9) += (-wy * pz);
-				ATA.coeffRef(10) += 0;
-				ATA.coeffRef(11) += wy * px;
-				ATA.coeffRef(14) += wz;
-				ATA.coeffRef(15) += wz * py;
-				ATA.coeffRef(16) += (-wz * px);
-				ATA.coeffRef(17) += 0;
-				ATA.coeffRef(21) += wy * pz * pz + wz * py * py;
-				ATA.coeffRef(22) += (-wz * px * py);
-				ATA.coeffRef(23) += (-wy * px * pz);
-				ATA.coeffRef(28) += wx * pz * pz + wz * px * px;
-				ATA.coeffRef(29) += (-wx * py * pz);
-				ATA.coeffRef(35) += wx * py * py + wy * px * px;
+		w_ground = 2.4; // 0.8 , z
+		w_roof = 2.4;   // 0.8 , z
+		w_facade = 3.0; // 1.0 , xy
+		w_pillar = 1.5; //  , xy
+		w_beam = 1.2;   //  , z
+		w_vertex = 2.0; // , xyz
 
-				ATb.coeffRef(0) += (-wx * dx);
-				ATb.coeffRef(1) += (-wy * dy);
-				ATb.coeffRef(2) += (-wz * dz);
-				ATb.coeffRef(3) += wy * pz * dy - wz * py * dz;
-				ATb.coeffRef(4) += wz * px * dz - wx * pz * dx;
-				ATb.coeffRef(5) += wx * py * dx - wy * px * dy;
-			}
-		}
+		pt2pl_lls_summation(Source_Ground, Target_Ground, Corr_Ground, ATA, ATb, w_ground);
+		pt2pl_lls_summation(Source_Facade, Target_Facade, Corr_Facade, ATA, ATb, w_facade);
+		pt2pl_lls_summation(Source_Roof, Target_Roof, Corr_Roof, ATA, ATb, w_roof);
+		pt2li_lls_summation(Source_Pillar, Target_Pillar, Corr_Pillar, ATA, ATb, w_pillar);
+		pt2li_lls_summation(Source_Beam, Target_Beam, Corr_Beam, ATA, ATb, w_beam);
+		pt2pt_lls_summation(Source_Vertex, Target_Vertex, Corr_Vertex, ATA, ATb, w_vertex);
 
+		//ATA is a symmetric matrix
 		ATA.coeffRef(6) = ATA.coeff(1);
 		ATA.coeffRef(12) = ATA.coeff(2);
 		ATA.coeffRef(13) = ATA.coeff(8);
@@ -1936,17 +1969,181 @@ class CRegistration
 
 		// Solve A*x = b  x= (ATA)^(-1)ATb
 		// x: tx ty tz alpha beta gamma
-		Vector6f x = static_cast<Vector6f>(ATA.inverse() * ATb);
+		unknown_x = static_cast<Vector6f>(ATA.inverse() * ATb);
 
 		information_matrix = ATA;
-
-		// Construct the transformation matrix from x
-		constructTransformation(x(0), x(1), x(2), x(3), x(4), x(5), transformationS2T);
 
 		return 1;
 	}
 
-	void constructTransformation(const float &tx, const float &ty, const float &tz,
+	bool pt2pt_lls_residual(const typename pcl::PointCloud<PointT>::Ptr &Source_Cloud, const typename pcl::PointCloud<PointT>::Ptr &Target_Cloud,
+							boost::shared_ptr<pcl::Correspondences> &Corr, const Vector6f &transform_x, double &MSE)
+	{
+		for (int i = 0; i < (*Corr).size(); i++)
+		{
+			int s_index, t_index;
+			s_index = (*Corr)[i].index_query;
+			t_index = (*Corr)[i].index_match;
+
+			if (t_index != -1)
+			{
+				float px = Source_Cloud->points[s_index].x;
+				float py = Source_Cloud->points[s_index].y;
+				float pz = Source_Cloud->points[s_index].z;
+				float qx = Target_Cloud->points[t_index].x;
+				float qy = Target_Cloud->points[t_index].y;
+				float qz = Target_Cloud->points[t_index].z;
+
+				float dx = px - qx;
+				float dy = py - qy;
+				float dz = pz - qz;
+
+				Eigen::Matrix<float, 3, 6> A_Matrix;
+				Eigen::Matrix<float, 3, 1> b_vector;
+				Eigen::Matrix<float, 3, 1> residual_vector;
+
+				A_Matrix << 1, 0, 0, 0, pz, -py,
+					0, 1, 0, -pz, 0, px,
+					0, 0, 1, py, -px, 0;
+				b_vector << -dx, -dy, -dz;
+
+				residual_vector = A_Matrix * transform_x - b_vector;
+
+				MSE += (residual_vector(0) * residual_vector(0) + residual_vector(1) * residual_vector(1) + residual_vector(2) * residual_vector(2));
+			}
+		}
+
+		return 1;
+	}
+
+	bool pt2pl_lls_residual(const typename pcl::PointCloud<PointT>::Ptr &Source_Cloud, const typename pcl::PointCloud<PointT>::Ptr &Target_Cloud,
+							boost::shared_ptr<pcl::Correspondences> &Corr, const Vector6f &transform_x, double &MSE)
+	{
+		for (int i = 0; i < (*Corr).size(); i++)
+		{
+			int s_index, t_index;
+			s_index = (*Corr)[i].index_query;
+			t_index = (*Corr)[i].index_match;
+			if (t_index != -1)
+			{
+				float px = Source_Cloud->points[s_index].x;
+				float py = Source_Cloud->points[s_index].y;
+				float pz = Source_Cloud->points[s_index].z;
+				float qx = Target_Cloud->points[t_index].x;
+				float qy = Target_Cloud->points[t_index].y;
+				float qz = Target_Cloud->points[t_index].z;
+				float ntx = Target_Cloud->points[t_index].normal_x;
+				float nty = Target_Cloud->points[t_index].normal_y;
+				float ntz = Target_Cloud->points[t_index].normal_z;
+
+				float a = ntz * py - nty * pz;
+				float b = ntx * pz - ntz * px;
+				float c = nty * px - ntx * py;
+				float d = ntx * qx + nty * qy + ntz * qz - ntx * px - nty * py - ntz * pz;
+
+				float residual = ntx * transform_x(0) + nty * transform_x(1) + ntz * transform_x(2) + a * transform_x(3) + b * transform_x(4) + c * transform_x(5) - d;
+
+				MSE += residual * residual;
+			}
+		}
+
+		return 1;
+	}
+
+	bool pt2li_lls_residual(const typename pcl::PointCloud<PointT>::Ptr &Source_Cloud, const typename pcl::PointCloud<PointT>::Ptr &Target_Cloud,
+							boost::shared_ptr<pcl::Correspondences> &Corr, const Vector6f &transform_x, double &MSE)
+	{
+		for (int i = 0; i < (*Corr).size(); i++)
+		{
+			int s_index, t_index;
+			s_index = (*Corr)[i].index_query;
+			t_index = (*Corr)[i].index_match;
+			if (t_index != -1)
+			{
+				float px = Source_Cloud->points[s_index].x;
+				float py = Source_Cloud->points[s_index].y;
+				float pz = Source_Cloud->points[s_index].z;
+				float qx = Target_Cloud->points[t_index].x;
+				float qy = Target_Cloud->points[t_index].y;
+				float qz = Target_Cloud->points[t_index].z;
+				float ntx = Target_Cloud->points[t_index].normal_x;
+				float nty = Target_Cloud->points[t_index].normal_y;
+				float ntz = Target_Cloud->points[t_index].normal_z;
+				float nsx = Source_Cloud->points[s_index].normal_x;
+				float nsy = Source_Cloud->points[s_index].normal_y;
+				float nsz = Source_Cloud->points[s_index].normal_z;
+
+				float dx = px - qx;
+				float dy = py - qy;
+				float dz = pz - qz;
+
+				float nx = nty * nsz - ntz * nsy;
+				float ny = ntz * nsx - ntx * nsz;
+				float nz = ntx * nsy - nty * nsx;
+				float nd = sqrt(nx * nx + ny * ny + nz * nz);
+				nx /= nd;
+				ny /= nd;
+				nz /= nd;
+
+				double nxy = nx * ny;
+				double nxz = nx * nz;
+				double nyz = ny * nz;
+				double nx2 = nx * nx;
+				double ny2 = ny * ny;
+				double nz2 = nz * nz;
+				double px2 = px * px;
+				double py2 = py * py;
+				double pz2 = pz * pz;
+				double pxy = px * py;
+				double pxz = px * pz;
+				double pyz = py * pz;
+
+				Eigen::Matrix<float, 3, 6> A_Matrix;
+				Eigen::Matrix<float, 3, 1> b_vector;
+				Eigen::Matrix<float, 3, 1> residual_vector;
+
+				A_Matrix << 0, nz, -ny, -nz * pz - ny * py, ny * px, nz * px,
+					-nz, 0, nx, nx * py, -nx * px - nz * pz, nz * py,
+					ny, -nx, 0, nx * pz, ny * pz, -ny * py - nx * px;
+				b_vector << -nz * dy + ny * dz, -nx * dz + nz * dx, -ny * dx + nx * dy;
+
+				residual_vector = A_Matrix * transform_x - b_vector;
+
+				MSE += (residual_vector(0) * residual_vector(0) + residual_vector(1) * residual_vector(1) + residual_vector(2) * residual_vector(2));
+			}
+		}
+
+		return 1;
+	}
+
+	bool Multi_metrics_lls_residual(const typename pcl::PointCloud<PointT>::Ptr &Source_Ground, const typename pcl::PointCloud<PointT>::Ptr &Target_Ground, boost::shared_ptr<pcl::Correspondences> &Corr_Ground,
+									const typename pcl::PointCloud<PointT>::Ptr &Source_Pillar, const typename pcl::PointCloud<PointT>::Ptr &Target_Pillar, boost::shared_ptr<pcl::Correspondences> &Corr_Pillar,
+									const typename pcl::PointCloud<PointT>::Ptr &Source_Beam, const typename pcl::PointCloud<PointT>::Ptr &Target_Beam, boost::shared_ptr<pcl::Correspondences> &Corr_Beam,
+									const typename pcl::PointCloud<PointT>::Ptr &Source_Facade, const typename pcl::PointCloud<PointT>::Ptr &Target_Facade, boost::shared_ptr<pcl::Correspondences> &Corr_Facade,
+									const typename pcl::PointCloud<PointT>::Ptr &Source_Roof, const typename pcl::PointCloud<PointT>::Ptr &Target_Roof, boost::shared_ptr<pcl::Correspondences> &Corr_Roof,
+									const typename pcl::PointCloud<PointT>::Ptr &Source_Vertex, const typename pcl::PointCloud<PointT>::Ptr &Target_Vertex, boost::shared_ptr<pcl::Correspondences> &Corr_Vertex,
+									const Vector6f &transform_x, double &sigma2)
+	{
+		double MSE = 0;
+
+		int Corr_total_num = (*Corr_Ground).size() + (*Corr_Pillar).size() + (*Corr_Beam).size() + (*Corr_Facade).size() + (*Corr_Roof).size() + (*Corr_Vertex).size();
+
+		pt2pl_lls_residual(Source_Ground, Target_Ground, Corr_Ground, transform_x, MSE);
+		pt2pl_lls_residual(Source_Pillar, Target_Pillar, Corr_Pillar, transform_x, MSE);
+		pt2pl_lls_residual(Source_Beam, Target_Beam, Corr_Beam, transform_x, MSE);
+		pt2li_lls_residual(Source_Facade, Target_Facade, Corr_Facade, transform_x, MSE);
+		pt2li_lls_residual(Source_Roof, Target_Roof, Corr_Roof, transform_x, MSE);
+		pt2pt_lls_residual(Source_Vertex, Target_Vertex, Corr_Vertex, transform_x, MSE);
+
+		MSE /= (Corr_total_num - 1);
+		sigma2 = MSE;
+
+		LOG(INFO) << "The sigma's square is " << sigma2;
+
+		return 1;
+	}
+
+	bool constructTransformation(const float &tx, const float &ty, const float &tz,
 								 const float &alpha, const float &beta, const float &gamma,
 								 Eigen::Matrix4f &transformation_matrix)
 	{
@@ -1967,6 +2164,8 @@ class CRegistration
 		transformation_matrix(1, 3) = static_cast<float>(ty);
 		transformation_matrix(2, 3) = static_cast<float>(tz);
 		transformation_matrix(3, 3) = static_cast<float>(1);
+
+		return 1;
 	}
 };
 

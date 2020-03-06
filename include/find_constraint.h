@@ -24,10 +24,10 @@ namespace ccn
 			int overlap_Registration_KNN, float overlap_Registration_OverlapRatio);
 
 	protected:
-		void find_neighbor_k_cps(CenterPoint &cp_search, vector<CenterPoint> &cp_points, int k);
-		void find_neighbor_r_cps(CenterPoint &cp_search, vector<CenterPoint> &cp_points, float r);
+		void find_neighbor_k_cps(centerpoint_t &cp_search, vector<centerpoint_t> &cp_points, int k);
+		void find_neighbor_r_cps(centerpoint_t &cp_search, vector<centerpoint_t> &cp_points, float r);
 
-		double calculate_iou(Bounds & bound1, Bounds & bound2);
+		double calculate_iou(bounds_t & bound1, bounds_t & bound2);
 		bool judge_adjacent(cloudblock_t & block1, cloudblock_t & block2);
 	private:
 

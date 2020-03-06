@@ -234,7 +234,7 @@ class CFilter : public CloudUtility<PointT>
 		return 1;
 	}
 
-	bool ActiveObjectFilter(const typename pcl::PointCloud<PointT>::Ptr &cloud_in, typename pcl::PointCloud<PointT>::Ptr &cloud_out, std::vector<Bounds> &active_bbxs)
+	bool ActiveObjectFilter(const typename pcl::PointCloud<PointT>::Ptr &cloud_in, typename pcl::PointCloud<PointT>::Ptr &cloud_out, std::vector<bounds_t> &active_bbxs)
 	{
 		std::vector<bool> is_static(cloud_in->points.size(), 1);
 		for (int i = 0; i < cloud_in->points.size(); i++)
@@ -273,8 +273,8 @@ class CFilter : public CloudUtility<PointT>
 
 		PrincipleComponentAnalysis<PointT> pca_estimator;
 
-		Bounds bounds;
-		CenterPoint center_pt;
+		bounds_t bounds;
+		centerpoint_t center_pt;
 		this->getBoundAndCenter(*cloud_in, bounds, center_pt); //Inherited from its parent class, use this->
 
 		//Construct Grid
@@ -396,16 +396,24 @@ class CFilter : public CloudUtility<PointT>
 
 		t2 = clock();
 
-		printf("Ground [%d | %d] UnGround [%d] \n", cloud_ground->points.size(), cloud_ground_down->points.size(), cloud_unground->points.size());
-		printf("Ground Filter done in %lf s\n", (float(t1 - t0) / CLOCKS_PER_SEC));
-		printf("Ground Normal Estimation done in %lf s\n", (float(t2 - t1) / CLOCKS_PER_SEC));
+		LOG(INFO) << "Ground: [" << cloud_ground->points.size() << " | " << cloud_ground_down->points.size() << "] Unground: [" << cloud_unground->points.size() << "].";
+		LOG(INFO) << "Ground segmentation done in " << (float(t1 - t0) / CLOCKS_PER_SEC);
+		LOG(INFO) << "Ground Normal Estimation done in " << (float(t2 - t1) / CLOCKS_PER_SEC);
 
 		return 1;
 	}
 
-	bool RoughClassify(const typename pcl::PointCloud<PointT>::Ptr &cloud_in, typename pcl::PointCloud<PointT>::Ptr &cloud_edge, typename pcl::PointCloud<PointT>::Ptr &cloud_planar, typename pcl::PointCloud<PointT>::Ptr &cloud_sphere,
-					   typename pcl::PointCloud<PointT>::Ptr &cloud_edge_down, typename pcl::PointCloud<PointT>::Ptr &cloud_planar_down, typename pcl::PointCloud<PointT>::Ptr &cloud_sphere_down,
-					   float neighbor_radius, int neigh_num_thre, float edge_thre, float planar_thre, float sphere_thre, float edge_thre_down, float planar_thre_down, float sphere_thre_down)
+	bool RoughClassifyNG(const typename pcl::PointCloud<PointT>::Ptr &cloud_in,
+						 typename pcl::PointCloud<PointT>::Ptr &cloud_pillar, typename pcl::PointCloud<PointT>::Ptr &cloud_beam,
+						 typename pcl::PointCloud<PointT>::Ptr &cloud_facade, typename pcl::PointCloud<PointT>::Ptr &cloud_roof,
+						 typename pcl::PointCloud<PointT>::Ptr &cloud_pillar_down, typename pcl::PointCloud<PointT>::Ptr &cloud_beam_down,
+						 typename pcl::PointCloud<PointT>::Ptr &cloud_facade_down, typename pcl::PointCloud<PointT>::Ptr &cloud_roof_down,
+						 typename pcl::PointCloud<PointT>::Ptr &cloud_vertex,
+						 float neighbor_radius, int neigh_num_thre,
+						 float edge_thre, float planar_thre, float edge_thre_down, float planar_thre_down,
+						 float sphere_thre, float vertex_feature_ratio_thre,
+						 float linear_vertical_cosine_high_thre, float linear_vertical_cosine_low_thre,
+						 float planar_vertical_cosine_high_thre, float planar_vertical_cosine_low_thre)
 	{
 		clock_t t0, t1;
 		t0 = clock();
@@ -415,41 +423,130 @@ class CFilter : public CloudUtility<PointT>
 		vector<pcaFeature> cloud_features;
 		pca_estimator.CalculatePcaFeaturesOfPointCloud(cloud_in, cloud_features, neighbor_radius);
 
+		vector<int> index_with_feature(cloud_in->points.size(), 0); // 0 - default, 1 - pillar, 2 - beam, 3 - facade, 4 - roof
+
 		for (int i = 0; i < cloud_in->points.size(); i++)
 		{
 			if (cloud_features[i].ptNum > neigh_num_thre)
 			{
+
 				if (cloud_features[i].linear_2 > edge_thre)
 				{
-					cloud_edge->points.push_back(cloud_in->points[i]);
+					if (cloud_features[i].vectors.principalDirection.z() > linear_vertical_cosine_high_thre)
+					{
+						cloud_pillar->points.push_back(cloud_in->points[i]);
+						index_with_feature[i] = 1;
+					}
+					else if (cloud_features[i].vectors.principalDirection.z() < linear_vertical_cosine_low_thre)
+					{
+						cloud_beam->points.push_back(cloud_in->points[i]);
+						index_with_feature[i] = 2;
+					}
+
+					else
+					{
+						;
+					}
+
 					if (cloud_features[i].linear_2 > edge_thre_down)
 					{
-						cloud_edge_down->points.push_back(cloud_in->points[i]);
+						if (cloud_features[i].vectors.principalDirection.z() > linear_vertical_cosine_high_thre)
+							cloud_pillar_down->points.push_back(cloud_in->points[i]);
+						else if (cloud_features[i].vectors.principalDirection.z() < linear_vertical_cosine_low_thre)
+							cloud_beam_down->points.push_back(cloud_in->points[i]);
+						else
+						{
+							;
+						}
 					}
 				}
+
 				else if (cloud_features[i].planar_2 > planar_thre)
 				{
-					cloud_planar->points.push_back(cloud_in->points[i]);
+					if (cloud_features[i].vectors.normalDirection.z() > planar_vertical_cosine_high_thre)
+					{
+						cloud_roof->points.push_back(cloud_in->points[i]);
+						index_with_feature[i] = 4;
+					}
+
+					else if (cloud_features[i].vectors.normalDirection.z() < planar_vertical_cosine_low_thre)
+					{
+						cloud_facade->points.push_back(cloud_in->points[i]);
+						index_with_feature[i] = 3;
+					}
+
+					else
+					{
+						;
+					}
+
 					if (cloud_features[i].planar_2 > planar_thre_down)
 					{
-						cloud_planar_down->points.push_back(cloud_in->points[i]);
-					}
-				}
-				else if (cloud_features[i].spherical_2 > sphere_thre)
-				{
-					cloud_sphere->points.push_back(cloud_in->points[i]);
-					if (cloud_features[i].spherical_2 > sphere_thre_down)
-					{
-						cloud_sphere_down->points.push_back(cloud_in->points[i]);
+						if (cloud_features[i].vectors.normalDirection.z() > planar_vertical_cosine_high_thre)
+							cloud_roof_down->points.push_back(cloud_in->points[i]);
+						else if (cloud_features[i].vectors.normalDirection.z() < planar_vertical_cosine_low_thre)
+							cloud_facade_down->points.push_back(cloud_in->points[i]);
+						else
+						{
+							;
+						}
 					}
 				}
 			}
 		}
 
+		for (int i = 0; i < cloud_in->points.size(); i++)
+		{
+			if (cloud_features[i].ptNum > neigh_num_thre && cloud_features[i].spherical_2 > sphere_thre)
+			{
+				int geo_feature_point_count = 0;
+				for (int j = 0; j < cloud_features[i].neighbor_indices.size(); j++)
+				{
+					if (index_with_feature[cloud_features[i].neighbor_indices[j]])
+						geo_feature_point_count++;
+				}
+				if (1.0 * geo_feature_point_count / cloud_features[i].ptNum > vertex_feature_ratio_thre)
+					cloud_vertex->points.push_back(cloud_in->points[i]);
+			}
+		}
+
 		t1 = clock();
-		printf("Edge [%d | %d] Planar [%d | %d] Sphere [%d | %d]\n", cloud_edge->points.size(), cloud_edge_down->points.size(), cloud_planar->points.size(), cloud_planar_down->points.size(), cloud_sphere->points.size(), cloud_sphere_down->points.size());
-		printf("Feature points extracted done in %lf s\n", (float(t1 - t0) / CLOCKS_PER_SEC));
+		LOG(INFO) << "Pillar: [" << cloud_pillar->points.size() << " | " << cloud_pillar_down->points.size() << "] Beam: [" << cloud_beam->points.size() << " | " << cloud_beam_down->points.size() << "] Facade: [" << cloud_facade->points.size() << " | " << cloud_facade_down->points.size() << "] Roof: [" << cloud_roof->points.size() << " | "
+				  << cloud_roof_down->points.size() << "] Vertex: [" << cloud_vertex->points.size() << "].";
+		LOG(INFO) << "Feature points extracted done in " << (float(t1 - t0) / CLOCKS_PER_SEC);
+
 		return 1;
+	}
+
+	bool ExtractSparseGeoFeaturePoints(cloudblock_t &in_block,
+									   float vf_downsample_resolution, float gf_grid_resolution, float gf_max_grid_height_diff, float gf_neighbor_height_diff, int gf_downsample_rate_ground_first,
+									   float pca_neighbor_radius, float edge_thre, float planar_thre, float sphere_thre,
+									   bool clear_raw_cloud = 1,
+									   int gf_grid_pt_num_thre = 15, float gf_max_ground_height = 100.0, int gf_downsample_rate_nonground = 3,
+									   int neigh_pt_num_thre = 10, float vertex_feature_ratio_thre = 0.5,
+									   float linear_vertical_cosine_high_thre = 0.9, float linear_vertical_cosine_low_thre = 0.4,
+									   float planar_vertical_cosine_high_thre = 0.9, float planar_vertical_cosine_low_thre = 0.4) //65 degree, 25 degree
+	{
+
+		voxelfilter(in_block.pc_raw, in_block.pc_down, vf_downsample_resolution);
+
+		int gf_downsample_rate_ground_second = 3 * gf_downsample_rate_ground_first;
+
+		FastGroundFilter(in_block.pc_down, in_block.pc_ground, in_block.pc_ground_down, in_block.pc_unground, gf_grid_pt_num_thre, gf_grid_resolution, gf_max_grid_height_diff, gf_neighbor_height_diff,
+						 gf_max_ground_height, gf_downsample_rate_ground_first, gf_downsample_rate_ground_second, gf_downsample_rate_nonground);
+
+		float edge_thre_down = edge_thre + 0.05;
+		float planar_thre_down = planar_thre + 0.05;
+
+		RoughClassifyNG(in_block.pc_unground, in_block.pc_pillar, in_block.pc_beam, in_block.pc_facade, in_block.pc_roof,
+						in_block.pc_pillar_down, in_block.pc_beam_down, in_block.pc_facade_down, in_block.pc_roof_down, in_block.pc_vertex,
+						pca_neighbor_radius, neigh_pt_num_thre,
+						edge_thre, planar_thre, edge_thre_down, planar_thre_down, sphere_thre, vertex_feature_ratio_thre,
+						linear_vertical_cosine_high_thre, linear_vertical_cosine_low_thre,
+						planar_vertical_cosine_high_thre, planar_vertical_cosine_low_thre);
+
+		if (clear_raw_cloud)
+			in_block.free_raw_cloud();
 	}
 
 	bool batchdownsamplepair(const constraint_t &this_con,

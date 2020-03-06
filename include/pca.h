@@ -230,6 +230,9 @@ namespace ccn
 
 			feature.vectors.principalDirection = eigen_vectors.col(0);
 			feature.vectors.normalDirection = eigen_vectors.col(2);
+            
+			feature.vectors.principalDirection.normalize();
+            feature.vectors.normalDirection.normalize();
 
 			feature.values.lamada1 = eigen_values(0);
 			feature.values.lamada2 = eigen_values(1);

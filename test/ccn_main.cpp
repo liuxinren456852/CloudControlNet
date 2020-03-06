@@ -5,12 +5,12 @@
 #include "map_viewer.hpp"
 #include "graph_optimizer.h"
 #include "common_reg.hpp"
+
 #include <glog/logging.h>
+#include <gflags/gflags.h>
 
 using namespace std;
 using namespace ccn;
-
-typedef pcl::PointXYZ Point_T;
 
 int main(int argc, char **argv)
 {
@@ -93,11 +93,11 @@ int main(int argc, char **argv)
 	for (int i = all_cons_number_pre - reg_cons_number_pre; i < all_cons_number_pre; i++) // For all the registration cons
 	{
 		//Import point cloud pair
-		pcXYZPtr cloud1(new pcXYZ()), cloud2(new pcXYZ());
+		pcXYZNPtr cloud1(new pcXYZN()), cloud2(new pcXYZN());
 		string Filename1, Filename2;
 		io.readLasCloudPairfromCon(All_cons[i], ALS_strip_files, TLS_files, MLS_files, BPLS_files, Filename1, Filename2, cloud1, cloud2);
 		//Down-sample point cloud pair
-		pcXYZPtr subcloud1(new pcXYZ()), subcloud2(new pcXYZ()), subcloud1_perturbated(new pcXYZ());
+		pcXYZNPtr subcloud1(new pcXYZN()), subcloud2(new pcXYZN()), subcloud1_perturbated(new pcXYZN());
 		cfilter.batchdownsamplepair(All_cons[i], cloud1, cloud2, subcloud1, subcloud2,
 									downsample_voxels_size_als, downsample_voxels_size_tls, downsample_voxels_size_mls, downsample_voxels_size_bpls);
 		//Pairwise registration using trimmed-ICP with/without perturbation
@@ -241,7 +241,7 @@ io.displaymulti(cloudS, cloudT, regALS, "TLS[R] ALS_before[B] ALS_transformed[G]
 ALS2ALS Pt - PtICP 10s Pt - PtICP 15s GICP 19s ALS2TLS Pt - PtICP 25s Pt - PtICP 35s GICP 40s TLS2TLS Pt - PtICP 35s Pt - PtICP 40s GICP 45s
 
 #endif
-	/*
+/*
 //���ȼ�ˣ���RMSE; (ԭ15cm����);
 DataIo <pcl::PointXYZ> io;
 std::vector <std::vector<double>> coordinatesA;
@@ -252,7 +252,7 @@ double RMSE;
 RMSE = io.cal_cor_RMSE(coordinatesA, coordinatesB);
 */
 
-	/*
+/*
 //��˹ͶӰתUTMͶӰ;
 string foldername;
 cout << "Input Folder Name" << endl;
@@ -269,7 +269,7 @@ for (int i = 0; i < filenames.size(); i++)
 }
 */
 
-	/*
+/*
 //������������任;
 string foldername;
 cout << "Input Folder Name" << endl;
@@ -287,7 +287,7 @@ for (int i = 0; i < filenames.size(); i++)
 }
 */
 
-	/*
+/*
 //������������ƽ��;
 string foldername;
 cout << "Input Folder Name" << endl;
@@ -309,7 +309,7 @@ for (int i = 0; i < filenames.size(); i++)
 }
 */
 
-	/*
+/*
 //7&4��������ת��;
 DataIo <pcl::PointXYZ> io;
 std::vector <std::vector<double>> coordinatesA;
@@ -325,7 +325,7 @@ io.XYZ_7DOFCSTran(transpara);
 //io.XYZ_4DOFCSTran(transpara);
 */
 
-	/*
+/*
 //����ϵͶӰ�任;
 cout << "Processing the engineering coordinate system" << endl;
 float center_long_eng;
@@ -338,7 +338,7 @@ cin >> proj_surface_h_eng;
 io.tran_wgs2eng(center_long_eng,proj_surface_h_eng);
 */
 
-	/*
+/*
 //����ʱ��ֿ�;
 cout << "Please make sure all the ALS, MLS and BPLS point clouds are divided into blocks." << endl;
 cout << "If they are not divided, you can divide them now" << endl;
@@ -364,7 +364,7 @@ cout << "Write File Done..." << endl;
 }
 */
 
-	/*
+/*
 //����������׼;
 // Input the filename (Or just drag in) by yourself
 string filenameS, filenameT;
@@ -437,7 +437,7 @@ cout << "Write File Done..." << endl;
 //io.displaymulti(cloudS, cloudT, regALS, "TLS[R] ALS_before[B] ALS_transformed[G]"); // Display the result. Click "X" to continue.
 */
 
-	/*
+/*
 // ͬ��������ת��;
 // For TLS test
 // Input the filename (Or just drag in) by yourself
@@ -473,7 +473,7 @@ reg.LLS_4DOF(coordinatesA, coordinatesB, TransMatrixA2B, 2, 0.); //[Linear Least
 cout << "Procession Done ..." << endl;
 */
 
-	/*
+/*
 //�ֶ���������ļ���;
 //cout << "Input ALS Point Cloud (Blocks of all the strips) Folder:" << endl;
 //cin >> ALS_folder;
